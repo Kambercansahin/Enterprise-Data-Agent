@@ -1,0 +1,46 @@
+# Byte-compiled / optimize edilmiş Python dosyaları
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Sanal Ortamlar (Virtual Environments)
+.venv/
+venv/
+ENV/
+env/
+
+# Gizli Anahtarlar ve Çevre Değişkenleri
+.env
+.env.*
+!.env.example
+
+# Jupyter Notebook Artıkları ve Checkpoint Dosyaları
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+*-checkpoint.ipynb
+*-checkpoint.csv
+*-checkpoint.sql
+
+# IDE, Editör ve İşletim Sistemi Kalıntıları
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Ham Veri Dosyaları ve Veritabanı Kalıntıları (Boyutu yüksek dosyalar GitHub'a gitmemeli)
+data/raw/
+data/*_data/
+storage/
+*.csv
+*.tsv
+*.sql
+!data/schema.sql
+
+# Yerel Embedding Model Önbellekleri (FastEmbed / Hugging Face)
+.fastembed_cache/
+.cache/
+hf_cache/
