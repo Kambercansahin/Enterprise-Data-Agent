@@ -39,10 +39,9 @@ def get_schema_summary() -> str:
 
 
 def execute_sql_query(query: str) -> list[dict]:
-    """Üretilen SQL SELECT sorgusunu veritabanında çalıştırıp satırları döndürür."""
     cleaned_query = query.strip().rstrip(";")
 
-    # Güvenlik Kontrolü: Yalnızca SELECT izinli
+
     if not cleaned_query.upper().startswith("SELECT"):
         raise ValueError("Güvenlik ihlali: Sadece SELECT sorguları çalıştırılabilir.")
 

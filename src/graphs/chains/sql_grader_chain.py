@@ -13,8 +13,8 @@ class Sql(BaseModel):
     is_feasible: bool = Field(
         description="True if the user's question can be resolved using the tables and columns in the schema; otherwise, False."
     )
-    query:str = Field(
-
+    query:Optional[str] = Field(
+        default=None,
         description="A single-line, valid PostgreSQL SELECT query to be executed on the database."
     )
     explanation: str = Field(
@@ -55,15 +55,15 @@ if __name__ == "__main__":
     print("--- 1. ŞEMA ÇEKİLİYOR ---")
     current_schema = get_schema_summary()
 
-    question = "adıyaman hava durumu?"
+    question = "En iyi 10 yorumu getir"
 
     result = sql_chain.invoke({
         "schema": current_schema,
         "question": question
     })
-
-    print(f"\nÜretilen SQL:\n{result.query}")
-    print(f"\nAçıklama:\n{result.explanation}")
+    print(f"Feasible:{result.is_feasible}")
+    print(f"SQL:{result.query}")
+    print(f"Açıklama:{result.explanation}")
 
     try:
         db_data = execute_sql_query(result.query)
