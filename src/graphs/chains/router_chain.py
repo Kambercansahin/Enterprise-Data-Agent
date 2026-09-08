@@ -9,7 +9,7 @@ class Router(BaseModel):
 
     datasource:Literal["SQL","RAG","MultiStep","OutOfScope","websearch"] =Field(
         ...,
-        description="Given a user choose to route it to 'SQL','RAG','MultiStep','OutOfScope','web search'"
+        description="Given a user choose to route it to 'SQL','RAG','MultiStep','OutOfScope','WebSearch'"
     )
 
 llm = get_models()

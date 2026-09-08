@@ -51,7 +51,7 @@ if __name__ == "__main__":
 
     formatted_context = "\n\n".join([f"Review {i}: {r}" for i, r in enumerate(review, 1)])
 
-    response = rag_grader_chain.invoke({"question":question,"context":review} )
+    response = rag_grader_chain.invoke({"question":question,"context":formatted_context} )
 
     print(response)
     print(review)

@@ -46,6 +46,9 @@ CRITICAL INSTRUCTION FOR 'rag_query':
 - If the review search targets entities that must first be found by the database (like top products), you MUST put '{{context}}' in the text.
 - Correct: "{{context}} ürünleri hakkında müşteri memnuniyeti ve ana şikayetler nelerdir?"
 
+CRITICAL INSTRUCTION FOR 'web_query':
+- If external market research targets entities first found by SQL/internal DB, you MUST put '{{context}}' in the text.
+- Correct: "{{context}} global market price trends and competitors"
 CHANNELS:
 1. 'sql_question': Natural language metric question for internal DB.
 2. 'web_query': External market/benchmark search query.

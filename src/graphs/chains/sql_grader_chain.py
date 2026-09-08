@@ -41,7 +41,7 @@ Your task:
 sql_prompt = ChatPromptTemplate(
     [
         ("system",system_prompt),
-        ("user", "DataBase Schema:{schema}" "Question:{question}")
+        ("user", "DataBase Schema:{schema} Question:{question}")
     ]
 )
 
