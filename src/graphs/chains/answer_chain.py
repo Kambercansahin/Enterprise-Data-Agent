@@ -8,9 +8,9 @@ from langchain_core.prompts import ChatPromptTemplate
 
 #for testing
 from src.tools.db_tools import get_schema_summary,execute_sql_query
-from sql_grader_chain import sql_chain
+from src.graphs.chains.sql_grader_chain import sql_chain
 
-from generation_chain import generation_chain
+from src.graphs.chains.generation_chain import generation_chain
 
 load_dotenv()
 

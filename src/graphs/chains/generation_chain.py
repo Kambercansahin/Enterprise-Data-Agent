@@ -4,7 +4,7 @@ from src.graphs.project_models import get_models
 from langchain_core.prompts import ChatPromptTemplate
 #trying to sql query for generation
 from src.tools.db_tools import get_schema_summary,execute_sql_query
-from sql_grader_chain import sql_chain
+from src.graphs.chains.sql_grader_chain import sql_chain
 
 #trying to rag query for generation
 from src.tools.qrant_tools import  search_reviews_in_qdrant
@@ -47,6 +47,7 @@ STRICT CONSTRAINTS:
 - If data contains rows with counts or IDs, that counts as sufficient data to answer ranking or listing questions.
 - Completely ignore any channel displaying 'None', empty lists, or no data.
 - Respond in the language used in the user's question (e.g., if Turkish, write in fluent corporate Turkish).
+- Always respond in the LANGUAGE the user asks in, under all circumstances.
 
 --- STRUCTURED SQL METRICS ---
 {sql_data}

@@ -7,7 +7,7 @@ from src.graphs.project_models import get_models
 
 #for trying
 from src.tools.db_tools import get_schema_summary, execute_sql_query
-from sql_grader_chain import sql_chain
+from src.graphs.chains.sql_grader_chain import sql_chain
 from src.tools.qrant_tools import search_reviews_in_qdrant
 
 load_dotenv()

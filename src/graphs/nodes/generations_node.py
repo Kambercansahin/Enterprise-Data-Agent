@@ -13,6 +13,8 @@ def generation(state:GraphState) ->Dict[str,Any]:
     web_data = state.get("web_data")
     reasoning_steps = state.get("reasoning_steps")
 
+    current_retry = state.get("retry_count",0)
+
     #created generation
     result_generation = generation_chain.invoke({
         "question":question,
@@ -22,4 +24,4 @@ def generation(state:GraphState) ->Dict[str,Any]:
         "reasoning_steps":reasoning_steps
     })
 
-    return {"generation":result_generation}
+    return {"generation":result_generation.content,"retry_count":current_retry +1}

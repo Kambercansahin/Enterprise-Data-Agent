@@ -1,0 +1,6 @@
+GENERATE = "generation"
+DECOMPOSE = "decompose"
+WEBSEARCH = "websearch"
+OUT_OF_SCOPE = "out_of_scope"
+SQL_NODE = " sql_retriever"
+RAG_NODE = "rag_retriever"

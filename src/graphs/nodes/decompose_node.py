@@ -7,7 +7,7 @@ from src.graphs.chains.decompose_chain import decompose_chain
 from src.tools.db_tools import get_schema_summary,execute_sql_query
 from src.tools.qrant_tools import search_reviews_in_qdrant
 
-from langchain_community.tools.tavily_search import TavilySearchResults
+from langchain_tavily import TavilySearch
 
 # if router node chooses the multiStep
 
@@ -70,7 +70,7 @@ def decompose(state:GraphState) -> Dict[str,Any]:
         #for web query
     if decompose_c.web_query:
         #take the tavily search only allowed websites
-        search = TavilySearchResults(max_results=5,
+        search = TavilySearch(max_results=5,
                                      include_domains=["sikayetvar.com",
                                                       "webrazzi.com",
                                                       "donanimhaber.com",

@@ -1,11 +1,11 @@
 from typing import Any,Dict
 
-from langchain_community.tools.tavily_search import TavilySearchResults
+from langchain_tavily import TavilySearch
 
 from src.graphs.state import GraphState
 
 #search with tavily only allowed domains
-search = TavilySearchResults(max_results=5,
+search = TavilySearch(max_results=5,
                                  include_domains = ["sikayetvar.com",
                                                     "webrazzi.com",
                                                     "donanimhaber.com",

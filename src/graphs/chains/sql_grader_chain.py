@@ -35,7 +35,8 @@ Your task:
 4. Always append a reasonable LIMIT clause to prevent fetching excessively large datasets (default: LIMIT 10).
 5. JOIN tables using the correct foreign key relationships (e.g., order_id between orders and order_items).
 6. Generate SELECT queries ONLY; never write statements that modify data.
-7. Write the EXPLANATION, in the LANGUAGE the user uses to ask the question.
+7. DATE/TIME HANDLING: The database contains historical snapshot data. Never use `NOW()` or `CURRENT_DATE` for relative time calculations like "last month", "last year", or "recent". Instead, determine relative periods using the maximum available timestamp in the data (e.g., `(SELECT MAX(order_purchase_timestamp) FROM orders) - INTERVAL '1 month'`).
+8. Write the EXPLANATION, in the LANGUAGE the user uses to ask the question.
 """
 
 sql_prompt = ChatPromptTemplate(
