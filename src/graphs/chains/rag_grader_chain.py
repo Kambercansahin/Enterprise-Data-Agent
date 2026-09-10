@@ -46,12 +46,10 @@ rag_grader_chain = rag_grader_prompt | structure_llm
 if __name__ == "__main__":
     question= "En çok satış yapan 10 ürün hangisi?"
     review = search_reviews_in_qdrant(query_text=question,limit=4)
-    for i, y in enumerate(review, 1):
-        print(f"\n[{i}] {y}")
 
     formatted_context = "\n\n".join([f"Review {i}: {r}" for i, r in enumerate(review, 1)])
 
     response = rag_grader_chain.invoke({"question":question,"context":formatted_context} )
 
     print(response)
-    print(review)
+    #print(review)

@@ -3,7 +3,7 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
 from fastembed import TextEmbedding
 
-# Konfigürasyon
+# Configuration
 POSTGRES_CONFIG = {
     "dbname": "enterprise_db",
     "user": "admin",
@@ -15,26 +15,26 @@ POSTGRES_CONFIG = {
 QDRANT_HOST = "localhost"
 QDRANT_PORT = 6333
 COLLECTION_NAME = "olist_reviews"
-EMBEDDING_MODEL_NAME = "BAAI/bge-small-en-v1.5"
+EMBEDDING_MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 VECTOR_SIZE = 384
 BATCH_SIZE = 1000  # Qdrant upsert batch boyutu
 
 
 def init_qdrant_collection(client: QdrantClient):
-    """Qdrant üzerinde koleksiyonu temizleyip sıfırdan oluşturur."""
+    """Deletes the existing collection and creates a new one from scratch."""
     if client.collection_exists(COLLECTION_NAME):
-        print(f"'{COLLECTION_NAME}' koleksiyonu sıfırlanıyor...")
+        print(f"Resetting '{COLLECTION_NAME}' collection...")
         client.delete_collection(COLLECTION_NAME)
 
     client.create_collection(
         collection_name=COLLECTION_NAME,
         vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE)
     )
-    print(f"✓ '{COLLECTION_NAME}' koleksiyonu başarıyla hazırlandı.")
+    print(f"'{COLLECTION_NAME}' collection initialized successfully.")
 
 
 def fetch_all_review_records():
-    """PostgreSQL'den metin içeren tüm yorumları metadata ile çeker."""
+    """Fetches all reviews containing text from PostgreSQL along with metadata."""
     conn = psycopg2.connect(**POSTGRES_CONFIG)
     cur = conn.cursor()
 
@@ -59,20 +59,20 @@ def fetch_all_review_records():
 
 
 def ingest_all_reviews_to_qdrant():
-    """Tüm verileri vektörleştirip gruplar halinde Qdrant'a yükler."""
+    """Generates embeddings for all reviews and uploads them to Qdrant in batches."""
     qdrant = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
     init_qdrant_collection(qdrant)
 
-    print("PostgreSQL üzerinden metin içeren tüm yorumlar çekiliyor...")
+    print("Fetching all text-containing reviews from PostgreSQL...")
     rows = fetch_all_review_records()
     total_count = len(rows)
-    print(f"✓ Toplam {total_count:,} adet metinli kayıt çekildi.")
+    print(f"✓ Fetched {total_count:,} text-containing records in total.")
 
-    print(f"'{EMBEDDING_MODEL_NAME}' modeli ile embedding üretimi başlıyor...")
+    print(f"Starting embedding generation using '{EMBEDDING_MODEL_NAME}'...")
     embedding_model = TextEmbedding(model_name=EMBEDDING_MODEL_NAME)
 
     texts = [row[3] for row in rows]
-    # batch_size vererek embedding üretimini hızlandırıyoruz
+    # Using a batch size to speed up embedding generation
     embeddings = list(embedding_model.embed(texts, batch_size=256))
 
     points = []
@@ -91,7 +91,7 @@ def ingest_all_reviews_to_qdrant():
             )
         )
 
-    print(f"\nQdrant'a aktarım başlıyor (Batch boyutu: {BATCH_SIZE})...")
+    print(f"\nStarting upload to Qdrant (Batch size: {BATCH_SIZE})...")
     for i in range(0, total_count, BATCH_SIZE):
         batch = points[i : i + BATCH_SIZE]
         qdrant.upsert(
@@ -99,9 +99,9 @@ def ingest_all_reviews_to_qdrant():
             points=batch
         )
         current_loaded = min(i + BATCH_SIZE, total_count)
-        print(f"  -> {current_loaded:,} / {total_count:,} yüklendi (%{(current_loaded / total_count) * 100:.1f})")
+        print(f"  -> {current_loaded:,} / {total_count:,} uploaded  (%{(current_loaded / total_count) * 100:.1f})")
 
-    print(f"\n✓ Tebrikler! Toplam {total_count:,} adet yorum eksiksiz olarak Qdrant'a aktarıldı!")
+    print(f"\n✓ Success! All {total_count:,} reviews were successfully ")
 
 
 if __name__ == "__main__":

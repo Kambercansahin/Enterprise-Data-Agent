@@ -27,16 +27,24 @@ You will be provided with a database schema and a user's e-commerce-related ques
 
 Your task:
 1. Carefully inspect the schema: CAN the question be answered using the provided tables (orders, products, payments, customer locations, etc.)?
-   - If YES: Set `is_feasible = True` and generate an optimized PostgreSQL SELECT query (do not forget to include a LIMIT clause).
+   - If YES: Set `is_feasible = True` and generate an optimized PostgreSQL SELECT query.
    - If NO (e.g., the question is about weather, stock markets, general small talk, or fields missing from the schema):
      Set `is_feasible = False`, leave `query = None`, and write in the `explanation` field that the question is unrelated to or cannot be answered by the database.
 2. Under no circumstances should you force-guess or attempt to retrieve data from unrelated tables!
 3. Write a valid PostgreSQL SELECT query using ONLY the table and column names provided in the schema.
-4. Always append a reasonable LIMIT clause to prevent fetching excessively large datasets (default: LIMIT 10).
+4. Always append a reasonable LIMIT clause to prevent fetching excessively large datasets (default: LIMIT 10), unless an aggregate without grouping is computed.
 5. JOIN tables using the correct foreign key relationships (e.g., order_id between orders and order_items).
 6. Generate SELECT queries ONLY; never write statements that modify data.
-7. DATE/TIME HANDLING: The database contains historical snapshot data. Never use `NOW()` or `CURRENT_DATE` for relative time calculations like "last month", "last year", or "recent". Instead, determine relative periods using the maximum available timestamp in the data (e.g., `(SELECT MAX(order_purchase_timestamp) FROM orders) - INTERVAL '1 month'`).
-8. Write the EXPLANATION, in the LANGUAGE the user uses to ask the question.
+7. DATE/TIME HANDLING & SARGABILITY: 
+   - The database contains historical snapshot data. Never use `NOW()` or `CURRENT_DATE`.
+   - For all date-based filtering and chronological analysis, ALWAYS use `orders.order_purchase_timestamp`.
+   - NEVER use functions like `EXTRACT(YEAR FROM ...)` or `DATE_TRUNC(...)` in WHERE clauses because they bypass B-Tree indexes. Always use sargable range comparisons (e.g. `order_purchase_timestamp >= '2018-01-01' AND order_purchase_timestamp < '2019-01-01'`).
+8. BUSINESS & REVENUE RULES:
+   - When calculating revenue, sales turnover, or total amount sold, ALWAYS compute `SUM(oi.price)`. Do NOT add `freight_value` unless the user explicitly mentions shipping or delivery cost.
+   - Completed orders must be filtered using `order_status = 'delivered'`.
+9. Write the EXPLANATION, in the LANGUAGE the user uses to ask the question.
+10. AGGREGATION & UNIQUENESS:
+    When counting entities from joined tables (e.g., counting orders, customers, or sellers), ALWAYS use `COUNT(DISTINCT column_id)` (e.g., `COUNT(DISTINCT o.order_id)`) to avoid duplicate counts caused by one-to-many relationships (like orders having multiple reviews or items).
 """
 
 sql_prompt = ChatPromptTemplate(

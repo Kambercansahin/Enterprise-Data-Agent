@@ -131,7 +131,6 @@ work_flow.set_conditional_entry_point(
 
 work_flow.add_edge(DECOMPOSE,GENERATE)
 work_flow.add_edge(OUT_OF_SCOPE,END)
-work_flow.add_edge(DECOMPOSE,GENERATE)
 work_flow.add_edge(WEBSEARCH,GENERATE)
 work_flow.add_edge(SQL_NODE,GENERATE)
 work_flow.add_edge(RAG_NODE,GENERATE)

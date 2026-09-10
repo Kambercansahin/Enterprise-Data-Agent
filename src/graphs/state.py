@@ -18,12 +18,15 @@ class GraphState(TypedDict):
 
     question: str
 
+    #SQL
     sql_query: Optional[str]
     sql_data: Optional[Any]
 
+    #RAG
     rag_query: Optional[str]
     rag_data: Optional[str]
 
+    #WEB
     web_query: Optional[str]
     web_data: Optional[str]
 

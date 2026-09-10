@@ -15,9 +15,6 @@ def rag(state:GraphState) -> Dict[str,Any]:
     if not rag_text:
         return {"rag_data": None}
 
-    for i, y in enumerate(rag_text, 1):
-        print(f"\n[{i}] {y}")
-
     formatted_context = "\n\n".join([f"Review {i}: {r}" for i, r in enumerate(rag_text, 1)])
 
     response = rag_grader_chain.invoke({"question":question,"context":formatted_context} )

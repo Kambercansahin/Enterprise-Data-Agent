@@ -9,25 +9,27 @@ QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
 QDRANT_PORT = int(os.getenv("QDRANT_PORT", 6333))
 COLLECTION_NAME = "olist_reviews"
 
-# 1. Qdrant ve FastEmbed modellerini başlatıyoruz
+# 1. Initialize Qdrant and the FastEmbed model
 client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
-embedding_model = TextEmbedding(model_name="BAAI/bge-small-en-v1.5")
+embedding_model = TextEmbedding(model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
 
 
-def search_reviews_in_qdrant(query_text: str, limit: int = 4) -> list[str]:
-    """Soruyu vektöre çevirip Qdrant'ta arar ve yorum metinlerini döndürür."""
+def search_reviews_in_qdrant(query_text: str, limit: int = 4,score_threshold: float = 0.55) -> list[str]:
+    """Converts the query into a vector and performs a semantic similarity search
+       on Qdrant. Filters out results below the score threshold."""
 
-    # 2. Metni float listesi olan bir embedding vektörüne çeviriyoruz
+    # 2. Convert the text into an embedding vector represented as a list of floats
     query_vector = list(embedding_model.embed([query_text]))[0].tolist()
 
-    # 3. Vektörü query_points'e iletiyoruz
+    # 3. Pass the vector to query_points
     response = client.query_points(
         collection_name=COLLECTION_NAME,
         query=query_vector,
-        limit=limit
+        limit=limit,
+        score_threshold=score_threshold
     )
 
-    # 4. Dönen noktalardan metin alanını ayıklıyoruz
+    # 4. Extract the text field from the retrieved points
     retrieved_texts = []
     for point in response.points:
         payload = point.payload or {}
@@ -43,9 +45,17 @@ def search_reviews_in_qdrant(query_text: str, limit: int = 4) -> list[str]:
 
 
 if __name__ == "__main__":
-    test_soru = "adıyaman hava durumu"
-    yorumlar = search_reviews_in_qdrant(test_soru, limit=3)
+    def print_scores(query: str):
+        q_vec = list(embedding_model.embed([query]))[0].tolist()
+        res = client.query_points(
+            collection_name=COLLECTION_NAME,
+            query=q_vec,
+            limit=3
+        )
+        print(f"\nQuery: '{query}'")
+        for i, pt in enumerate(res.points, 1):
+            comment = (pt.payload or {}).get("comment", "")
+            print(f"  [{i}] Score: {pt.score:.4f} | comment: {comment}")
 
-    print(f"--- Qdrant'tan Gelen Sonuçlar ({len(yorumlar)} adet) ---")
-    for i, y in enumerate(yorumlar, 1):
-        print(f"\n[{i}] {y}")
+    print_scores("adıyaman hava durumu")
+    print_scores("kargo çok geç geldi ürün hasarlıydı")
