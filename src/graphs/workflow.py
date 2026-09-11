@@ -147,5 +147,5 @@ work_flow.add_conditional_edges(
     }
 )
 
-app =work_flow.compile()
-#app.get_graph().draw_mermaid_png(output_file_path="graph.png")
+graph =work_flow.compile()
+graph.get_graph().draw_mermaid_png(output_file_path="graph.png")
