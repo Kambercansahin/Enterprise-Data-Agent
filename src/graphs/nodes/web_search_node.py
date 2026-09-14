@@ -10,7 +10,15 @@ search = TavilySearch(max_results=5,
                                                     "webrazzi.com",
                                                     "donanimhaber.com",
                                                     "eksisozluk.com",
-                                                    "bloomberght.com"
+                                                    "bloomberght.com",
+                                                    "webrazzi.com",
+                                                    "bloomberght.com",
+                                                    "donanimhaber.com",
+                                                    "mckinsey.com",
+                                                    "gartner.com",
+                                                    "forbes.com",
+                                                    "reuters.com",
+                                                    "statista.com"
                                                 ])
 
 def websearch(state:GraphState) ->Dict[str,Any]:

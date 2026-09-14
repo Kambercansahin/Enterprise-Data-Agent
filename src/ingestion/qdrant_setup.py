@@ -2,14 +2,16 @@ import psycopg2
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
 from fastembed import TextEmbedding
-
+import os
+from dotenv import load_dotenv
+load_dotenv()
 # Configuration
 POSTGRES_CONFIG = {
-    "dbname": "enterprise_db",
-    "user": "admin",
-    "password": "password123",
-    "host": "localhost",
-    "port": 5433
+    "dbname":os.getenv("POSTGRES_DB"),
+    "user": os.getenv("POSTGRES_USER"),
+    "password": os.getenv("POSTGRES_PASSWORD"),
+    "host":os.getenv("POSTGRES_HOST"),
+    "port": os.getenv("POSTGRES_PORT"),
 }
 
 QDRANT_HOST = "localhost"

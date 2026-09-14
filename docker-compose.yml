@@ -6,11 +6,11 @@ services:
     container_name: agent_postgres
     restart: always
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: password123
-      POSTGRES_DB: enterprise_db
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-enterprise_db}
     ports:
-      - "5433:5432"
+      - ${POSTGRES_PORTS}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:

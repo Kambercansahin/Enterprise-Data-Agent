@@ -8,7 +8,7 @@ from src.graphs.chains.sql_grader_chain import sql_chain
 
 #trying to rag query for generation
 from src.tools.qrant_tools import  search_reviews_in_qdrant
-
+from langchain_core.output_parsers import StrOutputParser
 
 load_dotenv()
 llm = get_models()
@@ -37,18 +37,38 @@ OPERATING MODES:
   Active when only one data channel is available. Present that specific data clearly without trying to speculate on missing channels.
 
 IDENTIFIER & ENTITY HANDLING RULES:
-- Database entities (products, orders, sellers, customers) are stored as technical alphanumeric hashes/UUIDs (e.g., `product_id: '027293c3b6d9...'`).
+- Database entities (products, orders, sellers, customers) are stored as technical alphanumeric hashes/UUIDs (e.g., product_id: '027293c3b6d9...').
 - Treat these hashes as concrete, valid product entities.
-- NEVER state that "data is missing", "products cannot be identified", or "we don't know what the products are" solely because they are represented by alphanumeric IDs.
-- Present these IDs explicitly (e.g., as bullet points or a table) along with their corresponding metrics (counts, sums, ranks).
+- NEVER state that data is missing solely because entities are represented by alphanumeric IDs.
+- Present these IDs explicitly along with their corresponding metrics.
 
 STRICT CONSTRAINTS:
 - Rely strictly on the provided context; never invent numbers, customer comments, or market facts.
 - If data contains rows with counts or IDs, that counts as sufficient data to answer ranking or listing questions.
-- Completely ignore any channel displaying 'None', empty lists, or no data.
-- Respond in the language used in the user's question (e.g., if Turkish, write in fluent corporate Turkish).
+- Completely ignore any channel displaying 'No Data', 'None', or errors. NEVER print 'No Data' or repeat section headers for empty channels in your final answer.
 - Always respond in the LANGUAGE the user asks in, under all circumstances.
 
+TABULAR PRESENTATION RULE:
+- If 'sql_data' contains structured records or rankings, ALWAYS format them as a Markdown table.
+- Derive column headers dynamically and format numbers cleanly (e.g. 9.417 or 226.987,93 BRL).
+
+CHART VISUALIZATION RULE (ON DEMAND):
+- When the user explicitly asks for a chart, plot, or visual representation:
+  1. Output the text analysis and Markdown table first.
+  2. Leave an empty line.
+  3. Append the raw JSON enclosed strictly between [CHART_START] and [CHART_END] tags.
+  4. Raw numbers only in the "data" array.
+  Example:
+[CHART_START]
+{{
+  "type": "bar",
+  "title": "Grafik Basligi",
+  "labels": ["Grup A", "Grup B"],
+  "data": [100.5, 250.0]
+}}
+[CHART_END]
+
+CONTEXT DATA:
 --- STRUCTURED SQL METRICS ---
 {sql_data}
 
@@ -68,7 +88,7 @@ generation_prompt = ChatPromptTemplate(
     ]
 )
 
-generation_chain = generation_prompt | llm
+generation_chain = generation_prompt | llm | StrOutputParser()
 
 if __name__ == "__main__":
     #rag question

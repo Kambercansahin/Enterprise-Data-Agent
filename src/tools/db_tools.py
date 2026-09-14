@@ -8,11 +8,12 @@ load_dotenv()
 def get_connection():
     """Opens a connection to the PostgreSQL database running in Docker."""
     return psycopg2.connect(
-        host=os.getenv("POSTGRES_HOST", "localhost"),
-        port=os.getenv("POSTGRES_PORT", "5433"),
-        dbname=os.getenv("POSTGRES_DB", "enterprise_db"),
-        user=os.getenv("POSTGRES_USER", "admin"),
-        password=os.getenv("POSTGRES_PASSWORD", "password123")
+        host=os.getenv("POSTGRES_HOST"),
+        port=os.getenv("POSTGRES_PORT"),
+        dbname=os.getenv("POSTGRES_DB"),
+        user=os.getenv("POSTGRES_USER"),
+        password=os.getenv("POSTGRES_PASSWORD")
+
     )
 
 def get_schema_summary() -> str:

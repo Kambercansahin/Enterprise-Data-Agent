@@ -8,10 +8,10 @@ def generation(state:GraphState) ->Dict[str,Any]:
     print("---GENERATIONS NODE---")
     question = state["question"]
     #if sql_data ,rag_data,web_data or reasoning_steps are None system throws an error
-    sql_data = state.get("sql_data")
-    rag_data = state.get("rag_data")
-    web_data = state.get("web_data")
-    reasoning_steps = state.get("reasoning_steps")
+    sql_data = state.get("sql_data") or "No Data"
+    rag_data = state.get("rag_data") or "No Data"
+    web_data = state.get("web_data") or "No Data"
+    reasoning_steps = state.get("reasoning_steps") or "No Data"
 
     current_retry = state.get("retry_count",0)
 
@@ -24,4 +24,4 @@ def generation(state:GraphState) ->Dict[str,Any]:
         "reasoning_steps":reasoning_steps
     })
 
-    return {"generation":result_generation.content,"retry_count":current_retry +1}
+    return {"generation":result_generation,"retry_count":current_retry +1}

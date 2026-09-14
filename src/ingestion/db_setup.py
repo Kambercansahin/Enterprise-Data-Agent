@@ -1,14 +1,20 @@
+import os
 import polars as pl
 import psycopg2
 from psycopg2.extras import execute_values
+from dotenv import load_dotenv
 
-# 1. Doğrudan Psycopg2 Bağlantısı
+load_dotenv()
+
+DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data", "raw")
+
+# 1. Psycopg2 Bağlantısı
 conn = psycopg2.connect(
-    dbname="enterprise_db",
-    user="admin",
-    password="password123",
-    host="localhost",
-    port=5433
+    dbname=os.getenv("POSTGRES_DB", "enterprise_db"),
+    user=os.getenv("POSTGRES_USER", "cansahin1134"),
+    password=os.getenv("POSTGRES_PASSWORD"),
+    host=os.getenv("POSTGRES_HOST", "localhost"),
+    port=int(os.getenv("POSTGRES_PORT", 5433))
 )
 cur = conn.cursor()
 
@@ -24,9 +30,22 @@ loading_order = [
 
 print("PostgreSQL aktarımı başlıyor...\n")
 
+schema_path = os.path.join(DATA_DIR, "schema.sql")
+if os.path.exists(schema_path):
+    print("Tablo şemaları oluşturuluyor (schema.sql)...")
+    with open(schema_path, "r", encoding="utf-8") as f:
+        cur.execute(f.read())
+    conn.commit()
+    print("Şemalar başarıyla oluşturuldu.\n")
+else:
+    print("UYARI: schema.sql bulunamadı!")
+
 for table_name, file_name in loading_order:
     print(f"[{table_name.upper()}] hazırlanıyor...")
-    df = pl.read_csv(file_name, ignore_errors=True)
+
+    file_path = os.path.join(DATA_DIR, file_name)
+
+    df = pl.read_csv(file_path, ignore_errors=True)
 
     # 1. Products düzeltmesi
     if table_name == "products":
@@ -50,15 +69,13 @@ for table_name, file_name in loading_order:
             pl.col("review_answer_timestamp").str.to_datetime(strict=False)
         ])
 
-    # 4. Polars -> Python Dicts -> Tuple Listesi (Sıfır pyarrow bağımlılığı)
+    # 4. Polars -> Tuple Listesi
     columns = df.columns
     cols_str = ",".join(columns)
     query = f"INSERT INTO {table_name} ({cols_str}) VALUES %s"
 
-    # Polars satırlarını ham python nesneleri olarak alıyoruz
     data_tuples = df.iter_rows()
 
-    # Yüksek hızlı batch yükleme
     execute_values(cur, query, data_tuples, page_size=10000)
     conn.commit()
     print(f"✓ {table_name.upper()} başarıyla yüklendi ({df.height:,} satır)")
