@@ -22,6 +22,7 @@ from langgraph.graph import END,StateGraph
 from src.tools.db_tools import execute_sql_query,get_schema_summary
 from src.tools.qrant_tools import search_reviews_in_qdrant
 
+from langgraph.checkpoint.memory import MemorySaver
 
 from dotenv import load_dotenv
 
@@ -40,10 +41,13 @@ work_flow.add_node(OUT_OF_SCOPE,out_of_scope)
 
 def decided_to_router(state:GraphState) ->str:
     question = state["question"]
-
+    raw_messages = state.get("messages") or []
+    recent_history = raw_messages[-4:] if len(raw_messages) > 4 else raw_messages
     #router decision
+
     decision = router_chain.invoke({
-        "question":question
+        "question":question,
+        "chat_history": recent_history
     })
 
     #if router choose the SQL
@@ -146,6 +150,7 @@ work_flow.add_conditional_edges(
 
     }
 )
+checkpointer = MemorySaver()
 
-graph =work_flow.compile()
+graph =work_flow.compile(checkpointer=checkpointer)
 graph.get_graph().draw_mermaid_png(output_file_path="graph.png")

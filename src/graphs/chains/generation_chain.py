@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 from src.graphs.project_models import get_models
 
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate,MessagesPlaceholder
 #trying to sql query for generation
 from src.tools.db_tools import get_schema_summary,execute_sql_query
 from src.graphs.chains.sql_grader_chain import sql_chain
@@ -51,6 +51,14 @@ STRICT CONSTRAINTS:
 TABULAR PRESENTATION RULE:
 - If 'sql_data' contains structured records or rankings, ALWAYS format them as a Markdown table.
 - Derive column headers dynamically and format numbers cleanly (e.g. 9.417 or 226.987,93 BRL).
+CRITICAL LANGUAGE ENFORCEMENT:
+- Detect the language of the 'User Question'. You MUST respond entirely in that SAME language. If the user asks in Turkish, write the entire brief, headers, and recommendations in Turkish.
+
+MARKDOWN TABLE FORMATTING:
+- Tables MUST use standard Markdown syntax with pipes and line breaks:
+| Header 1 | Header 2 |
+| :--- | :--- |
+| Val 1 | Val 2 |
 
 CHART VISUALIZATION RULE (ON DEMAND):
 - When the user explicitly asks for a chart, plot, or visual representation:
@@ -84,6 +92,8 @@ CONTEXT DATA:
 generation_prompt = ChatPromptTemplate(
     [
         ("system",system_prompt),
+        #for the LLM to remember
+        MessagesPlaceholder(variable_name="chat_history",optional=True),
         ("user","User Question:{question}")
     ]
 )

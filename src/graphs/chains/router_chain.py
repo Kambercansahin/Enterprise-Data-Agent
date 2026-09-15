@@ -1,7 +1,7 @@
 from pydantic import BaseModel,Field
 from typing import Literal
 
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from src.graphs.project_models import  get_models
 
 class Router(BaseModel):
@@ -42,12 +42,17 @@ Analyze the user query regardless of language (Turkish, English, Portuguese) and
 
 5. OutOfScope:
    - Casual greetings, small talk, personal queries, programming questions, weather forecasts, or topics entirely unrelated to e-commerce and business data.
+6. MULTI-TURN & FOLLOW-UP QUERIES:
+   - When the user asks a brief, referential, or follow-up question (e.g., "So, what is the first one?", "And what about the third one?", "What is the return rate for this?"):
+     * ALWAYS resolve what "it" or "the first one" refers to by reading the provided 'chat_history'.
+     * Route the query based on the underlying subject (e.g., if the previous answer listed top products and the user asks "what about the first one?", route to SQL or MultiStep, NEVER to OutOfScope).
 """
 
 
 router_prompt = ChatPromptTemplate(
     [
         ("system",system_prompt),
+        MessagesPlaceholder(variable_name="chat_history",optional=True),
         ("user","{question}")
     ]
 )
