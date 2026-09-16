@@ -67,12 +67,10 @@ diye sorduğunda, sistem tek bir LLM çağrısıyla yetinmez. Soruyu gerektiğin
 
 Sistem, gelen soruyu sınıflandırıp doğru veri kaynağına yönlendiren ve ürettiği yanıtı iki katmanlı bir denetimden geçiren bir durum makinesidir (`src/graphs/workflow.py`).
 
-### Depodaki gerçek grafik çıktısı
 
 ![LangGraph Workflow](graph.png)
 
-### Mermaid ile akış (harici görsele bağımlı olmadan GitHub'da doğrudan render edilir)
-
+### Karar Akışı ve Mimari Döngü
 ```mermaid
 stateDiagram-v2
     [*] --> IntentRouter
@@ -290,6 +288,7 @@ gcloud run deploy enterprise-data-agent \
 - [ ] **Gelişmiş RBAC:** Kullanıcı ve departman rollerine göre finansal veri erişim kısıtlaması
 - [ ] **Proaktif Anomali Tespiti:** Veritabanında beklenmeyen düşüşleri tespit eden otomatik arka plan analist ajanları
 - [ ] Kimlik doğrulama (JWT / API Key) ile kurumsal erişim kontrolü
+
 ---
 ## 📄 Lisans
 
