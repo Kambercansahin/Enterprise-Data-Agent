@@ -39,9 +39,11 @@ Analyze the user query regardless of language (Turkish, English, Portuguese) and
 4. WebSearch:
    - External public web information, macroeconomic data, competitor market benchmarks, industry trends, or public regulatory information outside our internal databases.
 
-
 5. OutOfScope:
-   - Casual greetings, small talk, personal queries, programming questions, weather forecasts, or topics entirely unrelated to e-commerce and business data.
+   - Casual greetings, small talk, personal queries.
+   - Raw code snippets, application crash logs, stack traces, or internal server errors pasted by the user.
+   - Topics entirely unrelated to e-commerce, business analytics, and internal operational data.
+   
 6. MULTI-TURN & FOLLOW-UP QUERIES:
    - When the user asks a brief, referential, or follow-up question (e.g., "So, what is the first one?", "And what about the third one?", "What is the return rate for this?"):
      * ALWAYS resolve what "it" or "the first one" refers to by reading the provided 'chat_history'.

@@ -8,13 +8,13 @@ load_dotenv()
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data", "raw")
 
-# 1. Psycopg2 Bağlantısı
+
 conn = psycopg2.connect(
-    dbname=os.getenv("POSTGRES_DB", "enterprise_db"),
-    user=os.getenv("POSTGRES_USER", "cansahin1134"),
+    dbname=os.getenv("POSTGRES_DB"),
+    user=os.getenv("POSTGRES_USER"),
     password=os.getenv("POSTGRES_PASSWORD"),
-    host=os.getenv("POSTGRES_HOST", "localhost"),
-    port=int(os.getenv("POSTGRES_PORT", 5433))
+    host=os.getenv("POSTGRES_HOST"),
+    port=int(os.getenv("POSTGRES_PORT"))
 )
 cur = conn.cursor()
 

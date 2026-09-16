@@ -5,13 +5,32 @@ from src.graphs.workflow import graph
 from src.api.schemas import ChatResponse, ChatRequest, ChatResponseBase
 from src.tools.cache import get_cached_response, set_cached_response
 import uuid
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+import os
+from fastapi.responses import JSONResponse
 
+REDIS_URL = os.getenv("REDIS_URL")
+limiter = Limiter(
+    key_func=get_remote_address,
+    storage_uri=REDIS_URL if REDIS_URL else "memory://",
+    default_limits=["60/minute"]
+)
 app = FastAPI()
+app.state.limiter = limiter
 
+@app.exception_handler(RateLimitExceeded)
+async def custom_rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    return JSONResponse(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        content={"detail": "Too many request."}
+    )
 templates = Jinja2Templates(directory="src/api/templates")
 
 @app.post("/api/chat/",response_model=ChatResponse)
-async def get_chat(req:ChatRequest,request:Request):
+@limiter.limit("10/minute")
+async def get_chat(request:Request,req:ChatRequest):
     question = req.question.strip()
     if not question:
         raise HTTPException(
@@ -54,6 +73,7 @@ def get_chat_page(request: Request):
 
 
 @app.post("/chat/", include_in_schema=False)
+@limiter.limit("10/minute")
 async def post_chat_page(request: Request):
     content_type = request.headers.get("content-type", "")
     if "application/json" in content_type:
@@ -68,6 +88,14 @@ async def post_chat_page(request: Request):
             request=request,
             name="chat.html",
             context={"chat": {"answer": "Lütfen geçerli bir soru girin."}}
+        )
+
+    cached_data = get_cached_response(question)
+    if cached_data:
+        return templates.TemplateResponse(
+            request=request,
+            name="chat.html",
+            context={"chat": cached_data, "from_cache": True}
         )
 
     thread_id = request.cookies.get("session_thread_id") or str(uuid.uuid4())
@@ -89,4 +117,4 @@ async def post_chat_page(request: Request):
     return response
 
 if __name__ == "__main__":
-    uvicorn.run("src.api.main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("src.api.main:app", host="0.0.0.0", port=8080, reload=True)

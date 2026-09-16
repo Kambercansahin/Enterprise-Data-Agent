@@ -39,19 +39,18 @@ services:
       - agent_network
 
   fast_api:
+    build: .
     image: kambercansahin/fast_api:v1
+
     container_name: enterprise_data_agent
     restart: always
     env_file:
       - .env
-    depends_on:
-      - postgres
-      - qdrant
-      - redis
+      - src/graphs/.env
     networks:
       - agent_network
     ports:
-      - "8000:8000"
+      - "8080:8080"
 
 volumes:
   postgres_data:

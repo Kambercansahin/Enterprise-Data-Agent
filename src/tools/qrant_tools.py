@@ -4,13 +4,22 @@ from qdrant_client import QdrantClient
 from fastembed import TextEmbedding
 
 load_dotenv()
-
-QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
-QDRANT_PORT = int(os.getenv("QDRANT_PORT", 6333))
+QDRANT_URL = os.getenv("QDRANT_URL")
+QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
 COLLECTION_NAME = "olist_reviews"
 
-# 1. Initialize Qdrant and the FastEmbed model
-client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
+# 1. Initialize Qdrant client
+if QDRANT_URL:
+    client = QdrantClient(
+        url=QDRANT_URL,
+        api_key=QDRANT_API_KEY
+    )
+else:
+
+    client = QdrantClient(
+        host=os.getenv("QDRANT_HOST", "agent_qdrant"),
+        port=int(os.getenv("QDRANT_PORT", 6333))
+    )
 embedding_model = TextEmbedding(model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
 
 
