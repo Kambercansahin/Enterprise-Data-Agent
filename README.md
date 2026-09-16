@@ -43,8 +43,6 @@ diye sorduğunda, sistem tek bir LLM çağrısıyla yetinmez. Soruyu gerektiğin
 | 🖥️ **[Canlı Web Kokpiti](https://enterprise-data-agent-927895662996.europe-west3.run.app/chat/)** | Yönetici sohbet arayüzü — doğal dilde soru sorup tablo/grafik yanıtı alın |
 | 📑 **[Canlı API (Swagger Docs)](https://enterprise-data-agent-927895662996.europe-west3.run.app/docs)** | `/api/chat/` uç noktasını interaktif test edebileceğiniz OpenAPI dokümantasyonu |
 
-**Bölge & Altyapı:** Google Cloud Run (`europe-west3` — Frankfurt) · Neon DB (Serverless PostgreSQL) · Qdrant Cloud · Upstash Redis
-
 ---
 
 ##  Mimari ve Teknoloji Yığını
@@ -56,57 +54,71 @@ diye sorduğunda, sistem tek bir LLM çağrısıyla yetinmez. Soruyu gerektiğin
 | Embedding Motoru | FastEmbed – `paraphrase-multilingual-MiniLM-L12-v2` | Yerel, ücretsiz, çok dilli (TR/PT) vektörleştirme |
 | Önbellek & Rate Limit | Redis (Upstash) | Sorgu önbelleği + SlowAPI istek sınırlama deposu |
 | Dış İstihbarat | Tavily AI | Veritabanında olmayan güncel/dış dünya soruları |
-| LLM | Google Gemini 2.5 Flash | SQL üretimi, yönlendirme, sentez, denetim zincirleri |
+| LLM | Google Gemini 2.5 Flash-lite | SQL üretimi, yönlendirme, sentez, denetim zincirleri |
 | Orkestrasyon | LangGraph (`StateGraph` + `MemorySaver`) | Koşullu yönlendirme, çok adımlı ayrıştırma, self-correction |
 | Backend | FastAPI + Jinja2 (SSR) | REST API + tarayıcı arayüzü |
 | Konteyner / Dağıtım | Docker, Google Cloud Build, Cloud Run | Sunucusuz, scale-to-zero canlı ortam |
 
 ---
-
 ## Mimari ve LangGraph Döngüsü
 
-Sistem, gelen soruyu sınıflandırıp doğru veri kaynağına yönlendiren ve ürettiği yanıtı iki katmanlı bir denetimden geçiren bir durum makinesidir (`src/graphs/workflow.py`).
-
+Sistem; gelen soruyu niyet analizine tabi tutan, SQL/RAG/Web kanalları arasında bağımlılık zincirleri (**Dependency Chaining**) kuran ve üretilen sonucu halüsinasyon ile cevap yeterliliği süzgecinden geçiren döngüsel bir durum makinesidir (`src/graphs/workflow.py`).
 
 ![LangGraph Workflow](graph.png)
 
-### Karar Akışı ve Mimari Döngü
+### Karar Akışı ve Mantıksal Mimari
+
 ```mermaid
-stateDiagram-v2
-    [*] --> IntentRouter
+flowchart TD
+    Start(["__start__"]) --> Router{"decided_to_router<br/>(router_chain)"}
 
-    IntentRouter --> SQLRetriever: sql
-    IntentRouter --> RAGRetriever: rag
-    IntentRouter --> Decompose: multi_step
-    IntentRouter --> WebSearch: web_search
-    IntentRouter --> OutOfScope: out_of_scope
+    %% 1. Katman: Yönlendirme ve Uzman Düğümler
+    Router -->|MultiStep| Decompose["decompose<br/>(Query Planner)"]
+    Router -->|SQL| SQLNode["sql<br/>(sql_grader_node)"]
+    Router -->|RAG| RAGNode["rag<br/>(rag_grader_node)"]
+    Router -->|websearch| WebNode["websearch<br/>(Tavily AI)"]
+    Router -->|out_of_scope| OutNode["out_of_scope"]
 
-    Decompose --> SQLRetriever: adım 1 (SQL)
-    SQLRetriever --> RAGRetriever: SQL sonucu RAG filtresine enjekte edilir
+    %% 2. Katman: Generation'a Aktarılan Gerçek State Değerleri
+    Decompose -->|"hybrid_context (sql + rag + web + reasoning)"| GenNode["generation"]
+    SQLNode -->|"sql_data + sql_query"| GenNode
+    RAGNode -->|"rag_data (doğrulanmış yorumlar)"| GenNode
+    WebNode -->|"web_data"| GenNode
 
-    RAGRetriever --> RetrievalGrader
-    RetrievalGrader --> Generation: alakalı
-    RetrievalGrader --> WebSearch: not_useful (alakasız)
+    OutNode --> EndNode(["__end__"])
 
-    SQLRetriever --> Generation
-    WebSearch --> Generation
-    OutOfScope --> [*]
+    %% 3. Katman: İki Kademeli Denetim ve Karar
+    GenNode --> Grader{"grader_hallucination_and_answer"}
 
-    Generation --> HallucinationGrader
-    HallucinationGrader --> Generation: not_supported (halüsinasyon, retry_count sınırlı)
-    HallucinationGrader --> AnswerGrader: temiz
+    Grader -->|"not_supported (retry < 2)"| GenNode
+    Grader -->|"not_useful (eksik yanıt)"| WebNode
+    Grader -->|"useful / give_up"| EndNode
 
-    AnswerGrader --> WebSearch: yetersiz
-    AnswerGrader --> [*]: doğru / give_up
 ```
+### Otonom Döngünün Adım Adım İşleyişi
 
-### Otonom döngünün bileşenleri
+* **1. Dinamik Yönlendirme (`decided_to_router`):**
+  * Kullanıcı sorusu ve son konuşma geçmişi (`messages[-4:]`) `router_chain` üzerinden analiz edilir.
+  * İstek; salt tablo analizi için `SQL`, müşteri deneyimi için `RAG`, çok adımlı hibrit analizler için `MultiStep`, dış pazar/sektör istihbaratı için `websearch` veya kapsam dışı durumlar için `out_of_scope` rotasına koşullu olarak aktarılır.
 
-- **Intent Router (`router_chain.py`)** — Soruyu ve konuşma geçmişini analiz ederek katı bir Pydantic şeması (`RouteQuery`) üzerinden `sql`, `rag`, `web_search`, `multi_step` veya `out_of_scope` rotalarından birine yönlendirir. *"Peki bunun sebebi ne?"* gibi önceki mesaja atıfta bulunan sorularda geçmişe bakarak doğru rotayı seçer (context-aware routing).
-- **Decompose (`decompose_node.py`)** — Hibrit sorularda alt görev zinciri kurar: önce SQL adımı çalışır (örn. *"en çok ciro yapan kategori hangisi?"*), dönen sonuç (`beleza_saude` gibi) ikinci adımda RAG sorgusuna dinamik bir filtre olarak enjekte edilir.
-- **Retrieval Grader** — Qdrant'tan gelen belgelerin soruyla gerçekten alakalı olup olmadığını denetleyen ikili (binary) bir LLM zinciri. Belgeler alakasızsa (`not_useful`) akış otomatik olarak Web Search'e yönlenir; uydurma cevap üretilmez.
-- **Hallucination Grader** — Üretilen yanıttaki iddiaların sağlanan bağlamda (SQL/RAG) gerçekten var olup olmadığını denetler. LLM veride olmayan bir sayı/iddia uydurduysa yanıt reddedilir ve `retry_count` ile sınırlı şekilde yeniden üretilir (`not_supported`).
-- **Answer Grader** — Üretilen yanıtın kullanıcının asıl sorusunu eksiksiz karşılayıp karşılamadığını denetler; yetersizse akış Web Search fallback'ine düşer.
+* **2. Çok Adımlı Ayrıştırma ve Hibrit Orkestrasyon (`decompose_node`):**
+  * `MultiStepDecompose` şeması, karmaşık soruları bağımlılıklarına göre (`sql_question`, `rag_query`, `web_query`) eşzamanlı ve ardışıl alt görevlere ayırır.
+  * Veritabanından önce çekilmesi gereken sayısal metrikler SQL ile sorgulanır; elde edilen sonuç `{{context}}` yer tutucusu üzerinden Olist müşteri yorumu taramasına (Qdrant) ve sektör araştırmasına (Tavily) dinamik filtre olarak enjekte edilir. Düğümün ürettiği tüm veriler (`sql_data`, `sql_query`, `rag_data`, `web_data`, `reasoning_steps`) tek bir durum paketi halinde `generation` düğümüne teslim edilir.
+
+* **3. Uzman Veri Motorları (Retrieval Layer):**
+  * **`sql` (`sql_chain`):** Soru şema üzerinden çözülebilir mi (`is_feasible`) denetler. B-Tree indeks performansını koruyan sargable filtreler (`orders.order_purchase_timestamp`), tekilleştirme (`COUNT(DISTINCT)`) ve `SUM(oi.price)` net ciro kurallarıyla salt-okunur `SELECT` sorgusu çalıştırarak `sql_data` ve `sql_query` üretir.
+  * **`rag` (`rag_grader_chain`):** FastEmbed ile çok dilli anlamsal tarama yapar. Qdrant'tan getirilen Portekizce müşteri geri bildirimlerini ikili doğrulayıcı (`RagGrader`) ile test ederek yalnızca soruyla doğrudan örtüşen kanıtları `rag_data` olarak filtreler.
+  * **`websearch` (`TavilySearch`):** Şirket içi veritabanında bulunmayan makro ekonomik trendler, tüketici şikayetleri ve pazar analizleri için sadece güvenilir/yetkili kaynakları tarar:
+    * *Tüketici ve Yerel Ekosistem:* Şikayetvar, Ekşi Sözlük, DonanımHaber, Webrazzi, BloombergHT
+    * *Global Analiz ve Pazar Raporları:* McKinsey, Gartner, Forbes, Reuters, Statista
+    * Çekilen sonuçlar kaynak URL ve içerik eşleşmesiyle yapılandırılarak `web_data` durumuna aktarılır.
+
+* **4. Sentez ve Raporlama (`generation`):**
+  * Hangi rotadan gelirse gelsin elde edilen tüm veri kümeleri (`sql_data`, `rag_data`, `web_data`, `reasoning_steps`) tek bir `merged_context` havuzunda harmanlanarak karar vericiye yönelik şeffaf ve kanıta dayalı bir yönetici özetine dönüştürülür.
+
+* **5. Çift Kademeli Doğrulama (`grader_hallucination_and_answer`):**
+  * **Hallucination Grader:** Üretilen cevabın her bir iddiası `merged_context` verisiyle doğrulanır. Desteklenmeyen veya uydurulan bilgi saptanırsa (`not_supported`), `retry_count < 2` limiti dahilinde cevap `generation` düğümünde kendi kendini düzeltecek şekilde baştan üretilir; limit aşılırsa kilitlenmeyi önlemek için süreç sonlandırılır (`give_up` $\rightarrow$ `__end__`).
+  * **Answer Grader:** Halüsinasyonsuz yanıtın kullanıcının asıl sorusunu eksiksiz karşılayıp karşılamadığı test edilir. Yanıt yetersiz veya yüzeysel kalmışsa (`not_useful`), sistem otomatik olarak dış kaynaklardan bilgi toplamak üzere `websearch` düğümüne fallback yapar; yeterliyse (`useful`) nihai çıktı kullanıcıya sunulur (`__end__`).
 
 ---
 
@@ -114,7 +126,7 @@ stateDiagram-v2
 
 - [x] **Veri Altyapısı:** PostgreSQL + Qdrant + Redis, izole Docker servisleri; 550k+ ilişkisel satır, 40k+ zenginleştirilmiş yorum
 - [x] **SQL Analist Ajanı:** Şemayı `information_schema` üzerinden dinamik okuyan, salt-okunur sorgu üreten ve çalıştıran düğüm
-- [x] **SQL Güvenlik Kalkanı:** Regex + AST tabanlı komut denetimi — yalnızca `SELECT`, tüm yazma komutları (`DROP/DELETE/UPDATE/ALTER/TRUNCATE/INSERT`) anında engelleniyor
+- [x] **SQL Güvenlik Kalkanı:** yalnızca `SELECT`, tüm yazma komutları (`DROP/DELETE/UPDATE/ALTER/TRUNCATE/INSERT`) anında engelleniyor
 - [x] **B-Tree İndeksleri:** `idx_orders_customer_id`, `idx_orders_status`, `idx_orders_purchase_timestamp`
 - [x] **RAG / Müşteri Sesi Ajanı:** FastEmbed + Qdrant ile çok dilli anlamsal arama ve metadata filtreleme
 - [x] **Web Arama Ajanı:** Tavily entegrasyonu ile dış pazar/makro trend soruları
@@ -284,7 +296,7 @@ gcloud run deploy enterprise-data-agent \
 
 ##  Gelecek Yol Haritası
 
-- [ ] **Çoklu Kiracı (Multi-Tenant) Desteği:** Farklı işletmelerin izole PostgreSQL şemaları ve Qdrant koleksiyonlarıyla çalışması
+- [ ] **Multi-Tenant Desteği:** Farklı işletmelerin izole PostgreSQL şemaları ve Qdrant koleksiyonlarıyla çalışması
 - [ ] **Gelişmiş RBAC:** Kullanıcı ve departman rollerine göre finansal veri erişim kısıtlaması
 - [ ] **Proaktif Anomali Tespiti:** Veritabanında beklenmeyen düşüşleri tespit eden otomatik arka plan analist ajanları
 - [ ] Kimlik doğrulama (JWT / API Key) ile kurumsal erişim kontrolü
