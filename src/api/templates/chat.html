@@ -241,6 +241,84 @@
         box-shadow: 0 2px 8px rgba(0,0,0,0.02);
     }
 
+    /* Dil Duyarlı Fallback Uyarısı */
+    .fallback-notice {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        padding: 14px 16px;
+        border-radius: 10px;
+        background: #fff8ec;
+        border: 1px solid #f3e0b8;
+        color: #7a5b1e;
+        font-size: 0.94rem;
+        line-height: 1.6;
+    }
+    .fallback-notice::before {
+        content: "⚠";
+        flex-shrink: 0;
+        font-size: 1.05rem;
+        line-height: 1.6;
+    }
+
+    /* Tıklanabilir Web Kaynak Kartları */
+    .sources-wrap {
+        margin-top: 18px;
+        padding-top: 14px;
+        border-top: 1px dashed var(--border-soft);
+    }
+    .sources-heading {
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--muted);
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .sources-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .source-card {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        max-width: 320px;
+        padding: 8px 12px;
+        border: 1px solid var(--chip-border);
+        background: var(--chip-bg);
+        border-radius: 10px;
+        text-decoration: none;
+        color: var(--text);
+        transition: all 0.15s ease;
+    }
+    .source-card:hover {
+        background: var(--chip-hover);
+        border-color: #c7cdfb;
+        transform: translateY(-1px);
+    }
+    .source-favicon { font-size: 0.95rem; flex-shrink: 0; }
+    .source-meta { display: flex; flex-direction: column; min-width: 0; }
+    .source-title {
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: #0369a1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .source-host {
+        font-size: 0.72rem;
+        color: var(--muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
     details.sql-toggle {
         margin-top: 14px;
         border: 1px solid var(--border-soft);
@@ -340,15 +418,16 @@
 
             <div class="bubble-row assistant">
                 <div class="bubble assistant">
-                    <div class="assistant-label"><span class="badge-dot"></span> Asistan</div>
+                    <div class="assistant-label"><span class="badge-dot"></span> <span class="lbl-asst">Asistan</span></div>
                     {% if chat.answer %}
                         <div class="markdown-body"></div>
                         <textarea class="raw-answer" style="display: none;">{{ chat.answer }}</textarea>
+                        <input type="hidden" class="raw-question" value="{{ chat.question }}">
                     {% else %}
                         <div class="answer-empty">Bu soru için metin özeti oluşturulmadı.</div>
                     {% endif %}
 
-                    {% if chat.sql_query %}
+                    {% if chat.sql_query and "__INSUFFICIENT_DATA__" not in chat.answer and "yetki alanı dışındadır" not in chat.answer and "out of scope" not in chat.answer|lower %}
                     <details class="sql-toggle">
                         <summary>Üretilen SQL sorgusunu göster</summary>
                         <pre class="sql-block"><code>{{ chat.sql_query }}</code></pre>
@@ -361,7 +440,7 @@
         <div class="empty-state" id="emptyState">
             <div>
                 <h1 id="greeting">Günaydın<span class="dot">.</span></h1>
-                <p class="subtitle">Size nasıl yardımcı olabilirim?</p>
+                <p class="subtitle" id="greetingSubtitle">Size nasıl yardımcı olabilirim?</p>
             </div>
 
             <div class="composer-block">
@@ -384,7 +463,7 @@
                 <div class="suggestions">
                     <button type="button" class="suggestion-chip" onclick="askQuestion(this.dataset.q)" data-q="En çok satılan ilk 3 ürünün müşteri memnuniyeti ve yorumlardaki ana şikayetleri neler?">En çok satılan ilk 3 ürünün müşteri memnuniyeti ve yorumlardaki ana şikayetleri neler?</button>
                     <button type="button" class="suggestion-chip" onclick="askQuestion(this.dataset.q)" data-q="En çok sipariş alan ilk 5 ürün kategorisi nedir?">En çok sipariş alan ilk 5 ürün kategorisi nedir?</button>
-                    <button type="button" class="suggestion-chip" onclick="askQuestion(this.dataset.q)" data-q="Kargo gecikmesiyle ilgili son incelemeler neler söylüyor?">Kargo gecikmesiyle ilgili son incelemeler neler söylüyor?</button>
+                    <button type="button" class="suggestion-chip" onclick="askQuestion(this.dataset.q)" data-q="Türkiye e-ticaret pazarında son dönemdeki lojistik trendleri ve teslimat gecikmesi sorunları genel sektörü nasıl etkiliyor?">Türkiye e-ticaret pazarında lojistik trendleri ve teslimat gecikmeleri sektörü nasıl etkiliyor?</button>
                 </div>
             </div>
         </div>
@@ -416,31 +495,215 @@
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    function renderSpecificBubble(rawText, targetEl) {
-        if (!rawText.trim() || !targetEl) return;
+    const INSUFFICIENT_SENTINEL = "__INSUFFICIENT_DATA__";
 
-        let chartJson = null;
-        const chartRegex = /\[CHART_START\]([\s\S]*?)\[CHART_END\]/;
-        const match = rawText.match(chartRegex);
+    const FALLBACK_MESSAGES = {
+        tr: "Mevcut veritabanı kayıtları ve harici kaynaklarda bu analizi doğrulamak için yeterli veri bulunamadı. Yanıltıcı bilgi üretmemek adına işlem sonlandırıldı. Lütfen sorunuzu farklı parametrelerle detaylandırın.",
+        en: "I was unable to verify sufficient data across internal databases and external sources to provide an accurate answer. Please refine or expand your inquiry."
+    };
 
-        if (match) {
+    function isEnglish(text) {
+        if (!text) return false;
+        const turkishChars = /[çğıöşüÇĞİÖŞÜ]/;
+        if (turkishChars.test(text)) return false;
+        const englishKeywords = /\b(what|which|show|list|how|who|why|when|order|orders|sales|revenue|drop|delete|select|products|seller|customers|trend|delay)\b/i;
+        return englishKeywords.test(text);
+    }
+
+    function resolveLang(questionText) {
+        if (questionText && questionText.trim().length > 0) {
+            return isEnglish(questionText) ? "en" : "tr";
+        }
+        const userLang = navigator.language || navigator.userLanguage || "tr";
+        return userLang.startsWith("en") ? "en" : "tr";
+    }
+
+    function parseNumericValue(val) {
+        if (typeof val === 'number') return val;
+        if (!val) return 0;
+        let str = String(val).trim();
+        if (str.includes('.') && str.includes(',')) {
+            str = str.replace(/\./g, '').replace(',', '.');
+        } else if (str.includes(',')) {
+            str = str.replace(',', '.');
+        }
+        const cleaned = parseFloat(str.replace(/[^0-9.-]+/g, ''));
+        return isNaN(cleaned) ? 0 : cleaned;
+    }
+
+    function renderInsufficientData(targetEl, bubbleEl, questionText) {
+        const lang = resolveLang(questionText);
+        const notice = document.createElement("div");
+        notice.className = "fallback-notice";
+        notice.textContent = FALLBACK_MESSAGES[lang];
+        targetEl.innerHTML = "";
+        targetEl.appendChild(notice);
+
+        if (bubbleEl) {
+            const sqlToggle = bubbleEl.querySelector("details.sql-toggle");
+            if (sqlToggle) sqlToggle.remove();
+        }
+    }
+
+    function renderSourceCards(container, sources, lang) {
+        if (!sources || !sources.length) return;
+
+        const wrap = document.createElement("div");
+        wrap.className = "sources-wrap";
+
+        const heading = document.createElement("div");
+        heading.className = "sources-heading";
+        heading.innerHTML = `
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line>
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+            </svg>
+            ${lang === "en" ? "Referenced Sources" : "Yararlanılan Dış Kaynaklar"}
+        `;
+        wrap.appendChild(heading);
+
+        const grid = document.createElement("div");
+        grid.className = "sources-grid";
+
+        sources.forEach(src => {
+            if (!src || !src.url) return;
+            let hostname = src.url;
             try {
-                chartJson = JSON.parse(match[1].trim());
-            } catch (e) {
-                console.error("Chart parse hatası:", e);
+                hostname = new URL(src.url).hostname.replace(/^www\./, "");
+            } catch (e) {}
+
+            const card = document.createElement("a");
+            card.className = "source-card";
+            card.href = src.url;
+            card.target = "_blank";
+            card.rel = "noopener noreferrer";
+            card.innerHTML = `
+                <span class="source-favicon" aria-hidden="true">🔗</span>
+                <span class="source-meta">
+                    <span class="source-title">${escapeHtml(src.title || hostname)}</span>
+                    <span class="source-host">${escapeHtml(hostname)}</span>
+                </span>
+            `;
+            grid.appendChild(card);
+        });
+
+        wrap.appendChild(grid);
+        container.appendChild(wrap);
+    }
+
+    // Backend formatına tam uyumlu kaynak ayıklama motoru
+    function extractSources(text) {
+        const sources = [];
+
+        // 1. Tavily node formatı: Source (https://...): ...
+        const tavilyRegex = /(?:Source|Kaynak)\s*\(\s*(https?:\/\/[^\s\)]+)\s*\):?/gi;
+        let match;
+        while ((match = tavilyRegex.exec(text)) !== null) {
+            const url = match[1];
+            try {
+                const domain = new URL(url).hostname.replace(/^www\./, '');
+                if (!sources.some(s => s.url === url)) {
+                    sources.push({ url: url, title: domain });
+                }
+            } catch (e) {}
+        }
+
+        // 2. Markdown link formatı: [metin](https://...)
+        const markdownLinkRegex = /\[([^\]]+)\]\((https?:\/\/[^\s\)]+)\)/g;
+        while ((match = markdownLinkRegex.exec(text)) !== null) {
+            const label = match[1];
+            const url = match[2];
+            try {
+                const domain = new URL(url).hostname.replace(/^www\./, '');
+                if (!sources.some(s => s.url === url)) {
+                    sources.push({ url: url, title: label || domain });
+                }
+            } catch (e) {}
+        }
+
+        // 3. Olası JSON formatı: [SOURCES_START] ... [SOURCES_END]
+        const jsonRegex = /\[SOURCES_START\]([\s\S]*?)\[SOURCES_END\]/;
+        const jsonMatch = text.match(jsonRegex);
+        if (jsonMatch) {
+            try {
+                const parsed = JSON.parse(jsonMatch[1].trim());
+                if (Array.isArray(parsed)) {
+                    parsed.forEach(p => {
+                        if (p && p.url && !sources.some(s => s.url === p.url)) {
+                            sources.push(p);
+                        }
+                    });
+                }
+            } catch(e) {}
+            text = text.replace(jsonRegex, "").trim();
+        }
+
+        // Metindeki ham 'Source (url):' satırlarını temizle
+        let cleanText = text.replace(tavilyRegex, "").trim();
+        return { cleanText, sources };
+    }
+
+    function renderSpecificBubble(rawText, targetEl, bubbleEl, questionText) {
+        if (!targetEl) return;
+
+        try {
+            let text = (rawText || "").trim();
+
+            if (!text) {
+                targetEl.innerHTML = '<div class="answer-empty">Bu soru için metin özeti oluşturulmadı.</div>';
+                return;
             }
-            rawText = rawText.replace(chartRegex, "").trim();
-        }
 
-        if (window.marked && typeof window.marked.parse === "function") {
-            marked.setOptions({ gfm: true, breaks: true });
-            targetEl.innerHTML = marked.parse(rawText);
-        } else {
-            targetEl.textContent = rawText;
-        }
+            const lang = resolveLang(questionText);
 
-        if (chartJson) {
-            drawChart(targetEl, chartJson);
+            // 1. Sentinel Kontrolü (__INSUFFICIENT_DATA__)
+            if (text === INSUFFICIENT_SENTINEL || text.includes(INSUFFICIENT_SENTINEL)) {
+                renderInsufficientData(targetEl, bubbleEl, questionText);
+                return;
+            }
+
+            // 2. Grafik Bloğunu Ayıkla: [CHART_START] ... [CHART_END]
+            let chartJson = null;
+            const chartRegex = /\[CHART_START\]([\s\S]*?)\[CHART_END\]/;
+            const chartMatch = text.match(chartRegex);
+            if (chartMatch) {
+                try {
+                    chartJson = JSON.parse(chartMatch[1].trim());
+                } catch (e) {
+                    console.error("Chart JSON parse hatası:", e);
+                }
+                text = text.replace(chartRegex, "").trim();
+            }
+
+            // 3. Web Kaynaklarını Ayıkla
+            const { cleanText, sources } = extractSources(text);
+            text = cleanText;
+
+            // 4. Markdown Parse
+            if (window.marked && typeof window.marked.parse === "function") {
+                marked.setOptions({ gfm: true, breaks: true });
+                targetEl.innerHTML = text ? marked.parse(text) : '';
+            } else {
+                targetEl.textContent = text;
+            }
+
+            if (!text && !chartJson && (!sources || !sources.length)) {
+                targetEl.innerHTML = '<div class="answer-empty">Bu soru için metin özeti oluşturulmadı.</div>';
+            }
+
+            // 5. Grafiği Çiz
+            if (chartJson) {
+                drawChart(targetEl, chartJson);
+            }
+
+            // 6. Kaynak Kartlarını Ekle
+            if (sources && sources.length > 0) {
+                renderSourceCards(targetEl, sources, lang);
+            }
+
+        } catch (err) {
+            console.error("Bubble render hatası:", err);
+            targetEl.innerHTML = '<div class="answer-empty">Yanıt işlenirken bir sorun oluştu.</div>';
         }
     }
 
@@ -448,8 +711,9 @@
         document.querySelectorAll(".bubble.assistant").forEach(bubble => {
             const rawEl = bubble.querySelector(".raw-answer");
             const targetEl = bubble.querySelector(".markdown-body");
+            const questionEl = bubble.querySelector(".raw-question");
             if (rawEl && targetEl && !targetEl.hasChildNodes()) {
-                renderSpecificBubble(rawEl.value || "", targetEl);
+                renderSpecificBubble(rawEl.value || "", targetEl, bubble, questionEl ? questionEl.value : "");
             }
         });
     }
@@ -464,16 +728,22 @@
         container.appendChild(cardWrapper);
 
         const chartType = config.type || 'bar';
+        const rawData = config.data || [];
+        const numericData = rawData.map(parseNumericValue);
+
+        const rawLabels = config.labels || [];
+        const cleanLabels = rawLabels.map(l => String(l).length > 12 ? '...' + String(l).slice(-8) : l);
+
         new Chart(canvas, {
             type: chartType,
             data: {
-                labels: config.labels || [],
+                labels: cleanLabels,
                 datasets: [{
                     label: config.title || 'Değer',
-                    data: config.data || [],
+                    data: numericData,
                     backgroundColor: chartType === 'line'
-                        ? 'rgba(16, 163, 127, 0.1)'
-                        : ['#10a37f', '#2a9d8f', '#48cae4', '#e76f51', '#f4a261', '#3b82f6', '#8b5cf6'],
+                        ? 'rgba(16, 163, 127, 0.15)'
+                        : ['#10a37f', '#2a9d8f', '#48cae4', '#e76f51', '#f4a261'],
                     borderColor: '#10a37f',
                     borderWidth: 2,
                     tension: 0.35,
@@ -484,11 +754,27 @@
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { display: chartType === 'scatter' },
-                    title: { display: !!config.title, text: config.title, font: { size: 14, weight: 'bold' } }
+                    legend: { display: chartType === 'line' || chartType === 'scatter' },
+                    title: { display: !!config.title, text: config.title, font: { size: 14, weight: 'bold' } },
+                    tooltip: {
+                        callbacks: {
+                            title: function(context) {
+                                const idx = context[0].dataIndex;
+                                return rawLabels[idx] || cleanLabels[idx];
+                            }
+                        }
+                    }
                 },
                 scales: {
-                    y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: '#f1f5f9' },
+                        ticks: {
+                            callback: function(value) {
+                                return value >= 1000 ? value.toLocaleString() : value;
+                            }
+                        }
+                    },
                     x: { grid: { display: false } }
                 }
             }
@@ -497,7 +783,7 @@
 
     function escapeHtml(text) {
         const div = document.createElement("div");
-        div.textContent = text;
+        div.textContent = text == null ? "" : String(text);
         return div.innerHTML;
     }
 
@@ -507,11 +793,16 @@
     }
 
     async function sendChatRequest(question) {
-        // Form girdilerini temizle
-        const inputs = [document.getElementById("question"), document.getElementById("questionBottom")];
-        inputs.forEach(inp => { if (inp) inp.value = ""; });
+        const enQuery = isEnglish(question);
 
-        // Karşılama ekranını kaldır, thread alanını hazırla
+        const inputs = [document.getElementById("question"), document.getElementById("questionBottom")];
+        inputs.forEach(inp => {
+            if (inp) {
+                inp.value = "";
+                inp.placeholder = enQuery ? "Type your message..." : "Mesajınızı yazın...";
+            }
+        });
+
         const emptyState = document.getElementById("emptyState");
         if (emptyState) emptyState.remove();
 
@@ -524,22 +815,21 @@
             page.appendChild(threadEl);
         }
 
-        // Alt input çubuğunu görünür yap
         const bottomComposer = document.getElementById("bottomComposer");
         if (bottomComposer) bottomComposer.style.display = "block";
 
-        // Kullanıcının yeni sorusunu ve bekleme animasyonunu ekle
         const userRow = document.createElement("div");
         userRow.className = "bubble-row user";
         userRow.innerHTML = `<div class="bubble user">${escapeHtml(question)}</div>`;
         threadEl.appendChild(userRow);
 
+        const assistantLabel = enQuery ? "Assistant" : "Asistan";
         const typingRow = document.createElement("div");
         typingRow.className = "bubble-row assistant";
         typingRow.id = "typingIndicator";
         typingRow.innerHTML = `
             <div class="bubble assistant">
-                <div class="assistant-label"><span class="badge-dot"></span> Asistan</div>
+                <div class="assistant-label"><span class="badge-dot"></span> <span class="lbl-asst">${assistantLabel}</span></div>
                 <div class="typing-dots"><span></span><span></span><span></span></div>
             </div>
         `;
@@ -553,24 +843,31 @@
                 body: JSON.stringify({ question })
             });
 
-            if (!res.ok) throw new Error("Sunucu hatası: " + res.status);
+            if (!res.ok) {
+                const errorText = enQuery
+                    ? `Server returned error (${res.status}). Please try again.`
+                    : `Sunucu hatası oluştu (${res.status}). Lütfen tekrar deneyin.`;
+                throw new Error(errorText);
+            }
 
             const htmlText = await res.text();
             const parser = new DOMParser();
             const doc = parser.parseFromString(htmlText, "text/html");
 
-            // Typing animasyonunu kaldır
             const typingEl = document.getElementById("typingIndicator");
             if (typingEl) typingEl.remove();
 
-            // Backend'den gelen asistan cevabını thread'e ekle
             const newAssistantBubble = doc.querySelector(".bubble-row.assistant");
             if (newAssistantBubble) {
+                const asstSpan = newAssistantBubble.querySelector(".lbl-asst");
+                if (asstSpan && enQuery) asstSpan.textContent = "Assistant";
+
                 threadEl.appendChild(newAssistantBubble);
                 const rawEl = newAssistantBubble.querySelector(".raw-answer");
                 const targetEl = newAssistantBubble.querySelector(".markdown-body");
+                const bubbleEl = newAssistantBubble.querySelector(".bubble.assistant");
                 if (rawEl && targetEl) {
-                    renderSpecificBubble(rawEl.value || "", targetEl);
+                    renderSpecificBubble(rawEl.value || "", targetEl, bubbleEl, question);
                 }
             }
 
@@ -578,7 +875,11 @@
         } catch (err) {
             const typingEl = document.getElementById("typingIndicator");
             if (typingEl) typingEl.remove();
-            alert("İşlem tamamlanamadı: " + err.message);
+
+            const fallbackMsg = enQuery
+                ? "An error occurred while processing your request: "
+                : "İşlem sırasında bir hata oluştu: ";
+            alert(fallbackMsg + err.message);
         }
     }
 
@@ -595,14 +896,30 @@
 
     function updateGreeting() {
         const greetingEl = document.getElementById("greeting");
+        const greetingSub = document.getElementById("greetingSubtitle");
         if (greetingEl) {
             const hour = new Date().getHours();
-            let text = "İyi günler";
-            if (hour < 6) text = "İyi geceler";
-            else if (hour < 12) text = "Günaydın";
-            else if (hour < 18) text = "İyi günler";
-            else text = "İyi akşamlar";
-            greetingEl.innerHTML = text + '<span class="dot">.</span>';
+            const userLang = navigator.language || navigator.userLanguage || "tr";
+            const isEn = userLang.startsWith("en");
+
+            if (isEn) {
+                let text = "Good day";
+                if (hour < 12) text = "Good morning";
+                else if (hour < 18) text = "Good afternoon";
+                else text = "Good evening";
+                greetingEl.innerHTML = text + '<span class="dot">.</span>';
+                if (greetingSub) greetingSub.textContent = "How can I help you today?";
+
+                const qInput = document.getElementById("question");
+                if (qInput) qInput.placeholder = "Type your message...";
+            } else {
+                let text = "İyi günler";
+                if (hour < 6) text = "İyi geceler";
+                else if (hour < 12) text = "Günaydın";
+                else if (hour < 18) text = "İyi günler";
+                else text = "İyi akşamlar";
+                greetingEl.innerHTML = text + '<span class="dot">.</span>';
+            }
         }
     }
 

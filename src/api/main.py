@@ -35,7 +35,7 @@ async def get_chat(request:Request,req:ChatRequest):
     if not question:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Soru alanı boş bırakılamaz."
+            detail="The question field cannot be left blank"
         )
 
     thread_id = request.headers.get("X-Thread-ID") or request.cookies.get("session_thread_id") or str(uuid.uuid4())
@@ -48,7 +48,7 @@ async def get_chat(request:Request,req:ChatRequest):
             "reasoning_steps": cached_data.get("reasoning_steps"),
             "status": "success"
         }
-    result = await graph.ainvoke({"question": question},config=config)
+    result = await graph.ainvoke({"question": question,"retry_count":0},config=config)
 
     all_result = {
         "answer":  (result.get("generation") or "").strip(),
@@ -100,7 +100,7 @@ async def post_chat_page(request: Request):
 
     thread_id = request.cookies.get("session_thread_id") or str(uuid.uuid4())
     config = {"configurable": {"thread_id": thread_id}}
-    result = await graph.ainvoke({"question": question}, config=config)
+    result = await graph.ainvoke({"question": question,"retry_count": 0}, config=config)
 
     all_result = {
         "question": question,

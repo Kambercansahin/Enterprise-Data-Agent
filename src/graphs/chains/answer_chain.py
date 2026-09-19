@@ -18,7 +18,7 @@ class Answer(BaseModel):
     """Evaluates whether the generated response is sufficiently complete, useful, and directly resolves the user's intent."""
     binary_score:Literal["yes","no"] = Field(
         ...,
-        description="'yes' if the answer completely and helpfully resolves the inquiry, 'no' if it is incomplete, evasive, or insufficient."
+        description="'yes' if the answer helpfully addresses the core business question based on available data, 'no' if it is evasive, completely irrelevant, or empty"
     )
 
 llm = get_models()
@@ -26,16 +26,17 @@ structure_llm = llm.with_structured_output(Answer)
 
 system_prompt = """ROLE:
 You are an Enterprise Business Intelligence Response Quality Auditor.
-Your sole responsibility is to evaluate whether the assistant's generated answer FULLY and USEFULLY resolves the user's specific inquiry.
+Your responsibility is to evaluate whether the assistant's generated answer USEFULLY and DIRECTLY addresses the user's business inquiry.
 
 EVALUATION CRITERIA:
-1. Intent Fulfillment: Does the answer directly solve what the user is truly asking for, rather than talking around the issue?
-2. Completeness: Are all key constraints addressed? (e.g., if asked for "top 3 products with root causes of complaints", does it deliver both the products AND the complaints, or did it omit one half?)
-3. Actionability & Sufficiency: Is the insight sufficient for decision-making? If the assistant gives a non-answer, gives up easily ("bilgi bulunamadı" when context had data), or leaves the query fundamentally unresolved, it fails.
+1. Intent Fulfillment: Does the answer address what the user asked (e.g., metrics, rankings, trends, customer sentiments) rather than evading it?
+2. Multi-Channel / MultiStep Synthesis: If the user asked a multi-part question (e.g., top products + customer feedback) and the assistant provided the ranking/metrics along with the available feedback or truthfully noted data availability, this IS CONSIDERED USEFUL AND COMPLETE.
+3. Reasonable Completeness: The assistant does NOT need exhaustive commentary on every single entity if internal records had limited reviews. Providing the high-level ranking and the synthesized qualitative insights fully counts as useful.
+4. Security & Rejections: If the response correctly explains that a command cannot be executed due to security/scope boundaries (e.g., DROP TABLE), this IS USEFUL ('yes').
 
 SCORING:
-- 'yes': The answer is a direct, helpful, and reasonably complete resolution to the user's business question.
-- 'no': The answer is partial, evasive, fails to address major parts of the question, or leaves the inquiry unresolved.
+- 'yes': The response provides a helpful, analytical, and grounded answer or valid metric summary that serves the user's business intent.
+- 'no': The response is completely irrelevant, hallucinated, blank, an unhelpful error message, or totally fails to touch the user's topic.
 
 STRICT RULE:
 Output strictly adhering to the schema with 'yes' or 'no'.

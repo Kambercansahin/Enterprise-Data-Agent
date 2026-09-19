@@ -44,23 +44,34 @@ def decompose(state:GraphState) -> Dict[str,Any]:
                 sql_data = execute_sql_query(query=sql_ch.query)
                 sql_query =sql_ch.query
                 #for rag query
-                context_pool["sql"] = str(sql_data)
+                #we are saving clean text into context_pool, not a raw tuple dump.
+                # convert raw SQL output to clean text: instead of "[('bed bath table', 11115)...]", use "bed_bath_table, health beauty, sports leisure"
+                if isinstance(sql_data, list):
+                    clean_names = ", ".join([
+                        str(row[0]) if isinstance(row, (tuple, list)) else str(row)
+                        for row in sql_data
+                    ])
+                    context_pool["sql"] = clean_names
+                else:
+                    context_pool["sql"] = str(sql_data)
                 reasoning_logs.append(f"SQL Question ({decompose_c.sql_question}): {context_pool['sql']}")
             except Exception as e:
                 sql_data = f"Sql data exception: {e}"
+                sql_query = None
         else:
             sql_data = f"Sql query cannot created {sql_ch.explanation}"
+            sql_query = None
 
     if decompose_c.rag_query:
         #rag query
         query_text = decompose_c.rag_query
-        if "{context}" in decompose_c.rag_query and "sql" in context_pool:
-            query_text = query_text.replace("{context}",context_pool["sql"])
-        #if the model skips writing {context} in the prompt, we must append the SQL result to the query.
-        elif "sql" in context_pool:
-            query_text = f"{context_pool['sql']} {query_text}".strip()
+        clean_context = context_pool.get("sql", "")
+        if "{context}" in query_text:
+            query_text = query_text.replace("{context}", clean_context)
+        elif clean_context:
+            query_text = f"{clean_context} {query_text}".strip()
 
-        reviews = search_reviews_in_qdrant(query_text=query_text,limit=4)
+        reviews = search_reviews_in_qdrant(query_text=query_text, limit=4)
         if reviews:
             formatted = "\n\n".join([f"Review {i}: {r}" for i, r in enumerate(reviews, 1)])
             rag_data = formatted
@@ -70,13 +81,22 @@ def decompose(state:GraphState) -> Dict[str,Any]:
         #for web query
     if decompose_c.web_query:
         #take the tavily search only allowed websites
-        search = TavilySearch(max_results=5,
-                                     include_domains=["sikayetvar.com",
-                                                      "webrazzi.com",
-                                                      "donanimhaber.com",
-                                                      "eksisozluk.com",
-                                                      "bloomberght.com"
-                                                      ])
+        trusted_domains = [
+            "webrazzi.com",
+            "eticaret.gov.tr",
+            "ticaret.gov.tr",
+            "bloomberght.com",
+            "dunya.com",
+            "ekonomim.com",
+            "reuters.com",
+            "lojistikdernegi.org.tr",
+            "utikad.org.tr",
+            "sikayetvar.com",
+            "tuik.gov.tr",
+            "tubisad.org.tr",
+        ]
+
+        search = TavilySearch(max_results=5, include_domains=trusted_domains)
 
         search_query = decompose_c.web_query
         if "{context}" in search_query:

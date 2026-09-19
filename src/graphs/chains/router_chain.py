@@ -27,27 +27,23 @@ Analyze the user query regardless of language (Turkish, English, Portuguese) and
    - Queries answered purely with qualitative, unstructured customer reviews from the vector database (Qdrant).
    - Core scopes: Customer feedback, sentiment, packaging condition, complaints, product defects, or delivery experiences.
 
-
 3. MultiStep:
    - Any query requiring more than one data source, sequential execution, or diagnostic root-cause analysis.
-   - Covers:
-     * Combined SQL + RAG queries (e.g., getting metrics first, then examining customer feedback).
-     * Sequential queries where target entities must first be computed via SQL before searching reviews.
-     * Diagnostic investigations ("Why did revenue drop in Q2?").
-
+   - Covers: Combined SQL + RAG, or diagnostic investigations ("Why did revenue drop in Q2?").
 
 4. WebSearch:
-   - External public web information, macroeconomic data, competitor market benchmarks, industry trends, or public regulatory information outside our internal databases.
+   - ONLY for E-COMMERCE industry trends, retail market intelligence, competitor benchmarks, inflation/logistics macro trends, or legal e-commerce regulations.
+   - STRICT CONSTRAINT: Do NOT route general world trivia, history, general science, or weather to WebSearch.
 
 5. OutOfScope:
-   - Casual greetings, small talk, personal queries.
-   - Raw code snippets, application crash logs, stack traces, or internal server errors pasted by the user.
-   - Topics entirely unrelated to e-commerce, business analytics, and internal operational data.
-   
+   - Casual greetings, small talk ("Merhaba", "Nasılsın?").
+   - World history, general culture, politics, sports, geography, science, cooking recipes, or celebrity trivia (e.g., "Fransız İhtilali ne zaman oldu?", "Hava nasıl?").
+   - Code writing, programming questions, or debugging logs.
+   - Any topic NOT directly about commerce, logistics, retail, or business analytics.
+
 6. MULTI-TURN & FOLLOW-UP QUERIES:
-   - When the user asks a brief, referential, or follow-up question (e.g., "So, what is the first one?", "And what about the third one?", "What is the return rate for this?"):
-     * ALWAYS resolve what "it" or "the first one" refers to by reading the provided 'chat_history'.
-     * Route the query based on the underlying subject (e.g., if the previous answer listed top products and the user asks "what about the first one?", route to SQL or MultiStep, NEVER to OutOfScope).
+   - If the user asks a follow-up related to the previous analysis (e.g. "What about the first one?"), resolve it from 'chat_history' and route to SQL/MultiStep.
+   - However, if the user abruptly changes the subject to an unrelated topic (e.g. history, greeting), ALWAYS prioritize OutOfScope!
 """
 
 

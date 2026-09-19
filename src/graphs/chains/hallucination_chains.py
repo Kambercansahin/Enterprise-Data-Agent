@@ -38,9 +38,9 @@ SCORING CRITERIA:
   * The response makes factual claims that cannot be traced directly back to the provided context.
 
 - 'no' (NO HALLUCINATION / FULLY GROUNDED):
-  * Every fact, entity, metric, and finding in the response is strictly supported by the provided context.
-  * Translating or summarizing Portuguese customer reviews into Turkish is completely acceptable as long as facts remain true to the source.
-  * Truthfully stating that data is missing or that no complaints were found is fully grounded and valid.
+  * Every metric and core finding aligns with the provided SQL and Review context.
+  * Translating, summarizing, or synthesizing insights from foreign-language (Portuguese) reviews into Turkish is fully accepted.
+  * Structural introductions, formatting, and high-level summaries explaining the data are NOT hallucinations.
 
 STRICT RULE:
 Provide strictly adhering output with a binary score: 'yes' (hallucinated) or 'no' (grounded).
