@@ -23,9 +23,10 @@ def decompose(state:GraphState) -> Dict[str,Any]:
     #for sql + rag or rag+web or sql+web
     context_pool = {}
     reasoning_logs = []
-
+    raw_messages = state.get("messages") or []
     decompose_c = decompose_chain.invoke({
-        "question":question
+        "question":question,
+        "chat_history": raw_messages
     })
 
     if decompose_c.sql_question:
@@ -94,9 +95,11 @@ def decompose(state:GraphState) -> Dict[str,Any]:
             "sikayetvar.com",
             "tuik.gov.tr",
             "tubisad.org.tr",
+            "marketingturkiye.com.tr",
+            "pazarlamasyon.com.tr",
         ]
 
-        search = TavilySearch(max_results=5, include_domains=trusted_domains)
+        search = TavilySearch(max_results=10, include_domains=trusted_domains)
 
         search_query = decompose_c.web_query
         if "{context}" in search_query:

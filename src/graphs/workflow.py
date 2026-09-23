@@ -111,7 +111,14 @@ def grader_hallucination_and_answer(state:GraphState)->str:
     # if reasoning steps  is not None we are adding
     if reasoning_steps and str(reasoning_steps).strip() not in ["No Data", "None"]:
         all_context.append(f"Reasoning Steps:{reasoning_steps}")
-
+    raw_messages = state.get("messages") or []
+    if raw_messages:
+        recent_history_texts = [
+            f"{m.type.upper()}: {m.content[:200]}" for m in raw_messages[-3:]
+        ]
+        all_context.append(
+            "RECENT CONVERSATION CONTEXT:\n" + "\n".join(recent_history_texts)
+        )
     merged_context = "\n\n".join(all_context) if all_context else "No context available."
 
     hallucination = hallucination_chain.invoke({

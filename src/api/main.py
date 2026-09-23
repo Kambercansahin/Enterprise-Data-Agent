@@ -10,6 +10,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 import os
 from fastapi.responses import JSONResponse
+from langchain_core.messages import AIMessage, HumanMessage
 
 REDIS_URL = os.getenv("REDIS_URL")
 limiter = Limiter(
@@ -40,7 +41,8 @@ async def get_chat(request:Request,req:ChatRequest):
 
     thread_id = request.headers.get("X-Thread-ID") or request.cookies.get("session_thread_id") or str(uuid.uuid4())
     config = {"configurable": {"thread_id": thread_id}}
-    cached_data = get_cached_response(question)
+    cache_key = f"{thread_id}:{question}"
+    cached_data = get_cached_response(cache_key)
     if cached_data:
         return {
             "answer": cached_data.get("answer"),
@@ -48,8 +50,12 @@ async def get_chat(request:Request,req:ChatRequest):
             "reasoning_steps": cached_data.get("reasoning_steps"),
             "status": "success"
         }
-    result = await graph.ainvoke({"question": question,"retry_count":0},config=config)
-
+    result = await graph.ainvoke({"question": question,"messages": [HumanMessage(content=question)],"retry_count":0},config=config)
+    answer_text = (result.get("generation") or "").strip()
+    if answer_text:
+        await graph.aupdate_state(
+            config, {"messages": [AIMessage(content=answer_text)]}
+        )
     all_result = {
         "answer":  (result.get("generation") or "").strip(),
         "sql_query": result.get("sql_query"),
@@ -57,7 +63,7 @@ async def get_chat(request:Request,req:ChatRequest):
         "status": "success"
     }
 
-    set_cached_response(question, all_result, ttl_seconds=600)
+    set_cached_response(cache_key, all_result, ttl_seconds=600)
 
     return all_result
 
@@ -89,8 +95,15 @@ async def post_chat_page(request: Request):
             name="chat.html",
             context={"chat": {"answer": "Lütfen geçerli bir soru girin."}}
         )
+    thread_id = (
+            request.headers.get("X-Thread-ID")
+            or request.cookies.get("session_thread_id")
+            or str(uuid.uuid4())
+    )
+    config = {"configurable": {"thread_id": thread_id}}
+    cache_key = f"{thread_id}:{question}"
 
-    cached_data = get_cached_response(question)
+    cached_data = get_cached_response(cache_key)
     if cached_data:
         return templates.TemplateResponse(
             request=request,
@@ -98,22 +111,26 @@ async def post_chat_page(request: Request):
             context={"chat": cached_data, "from_cache": True}
         )
 
-    thread_id = request.cookies.get("session_thread_id") or str(uuid.uuid4())
-    config = {"configurable": {"thread_id": thread_id}}
-    result = await graph.ainvoke({"question": question,"retry_count": 0}, config=config)
+    result = await graph.ainvoke({"question": question,"messages": [HumanMessage(content=question)],"retry_count": 0}, config=config)
+
+    answer_text = (result.get("generation") or "").strip()
+    if answer_text:
+        await graph.aupdate_state(
+            config, {"messages": [AIMessage(content=answer_text)]}
+        )
 
     all_result = {
         "question": question,
-        "answer": (result.get("generation") or "").strip(),
+        "answer": answer_text,
         "sql_query": result.get("sql_query"),
     }
-    set_cached_response(question, all_result, ttl_seconds=600)
+    set_cached_response(cache_key, all_result, ttl_seconds=600)
     response = templates.TemplateResponse(
         request=request,
         name="chat.html",
         context={"chat": all_result, "from_cache": False}
     )
-    response.set_cookie(key="session_thread_id", value=thread_id, httponly=True)
+    response.set_cookie(key="session_thread_id", value=thread_id, httponly=True,samesite="lax")
     return response
 
 if __name__ == "__main__":

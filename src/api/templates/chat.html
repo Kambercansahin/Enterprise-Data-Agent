@@ -32,6 +32,47 @@
         min-height: 100vh;
     }
 
+    /* Kurumsal üst şerit */
+    .app-header {
+        border-bottom: 1px solid var(--border-soft);
+        background: #ffffff;
+        flex-shrink: 0;
+    }
+    .app-header-inner {
+        max-width: 820px;
+        margin: 0 auto;
+        padding: 14px 24px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .app-logo-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--accent-dot);
+        display: inline-block;
+        flex-shrink: 0;
+    }
+    .app-title {
+        font-weight: 700;
+        font-size: 0.95rem;
+        color: #1a1a1a;
+        letter-spacing: 0.2px;
+    }
+    .app-badge {
+        margin-left: auto;
+        font-size: 0.68rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--muted);
+        background: var(--chip-bg);
+        border: 1px solid var(--chip-border);
+        padding: 3px 9px;
+        border-radius: 999px;
+    }
+
     .page {
         flex: 1;
         display: flex;
@@ -146,6 +187,29 @@
         background: #10a37f;
         display: inline-block;
     }
+    .assistant-label .msg-time {
+        margin-left: auto;
+        font-weight: 400;
+        text-transform: none;
+        letter-spacing: 0;
+        font-size: 0.72rem;
+        color: #b0b0ba;
+    }
+    .copy-btn {
+        border: none;
+        background: transparent;
+        color: var(--muted);
+        cursor: pointer;
+        padding: 3px;
+        display: flex;
+        align-items: center;
+        border-radius: 6px;
+        line-height: 0;
+        transition: background 0.15s, color 0.15s;
+    }
+    .copy-btn:hover { background: var(--chip-bg); color: var(--text); }
+    .copy-btn.copied { color: #10a37f; }
+    .copy-btn svg { width: 14px; height: 14px; }
 
     .answer-empty {
         color: var(--muted);
@@ -406,6 +470,15 @@
 </style>
 </head>
 <body>
+
+<div class="app-header">
+    <div class="app-header-inner">
+        <span class="app-logo-dot"></span>
+        <span class="app-title">Enterprise Data Agent</span>
+        <span class="app-badge">Kurumsal</span>
+    </div>
+</div>
+
 <div class="page">
 
     {% if chat and (chat.answer or chat.sql_query) %}
@@ -418,7 +491,17 @@
 
             <div class="bubble-row assistant">
                 <div class="bubble assistant">
-                    <div class="assistant-label"><span class="badge-dot"></span> <span class="lbl-asst">Asistan</span></div>
+                    <div class="assistant-label">
+                        <span class="badge-dot"></span>
+                        <span class="lbl-asst">Asistan</span>
+                        <span class="msg-time"></span>
+                        <button type="button" class="copy-btn" aria-label="Kopyala" title="Kopyala">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="9" y="9" width="13" height="13" rx="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
                     {% if chat.answer %}
                         <div class="markdown-body"></div>
                         <textarea class="raw-answer" style="display: none;">{{ chat.answer }}</textarea>
@@ -496,11 +579,73 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     const INSUFFICIENT_SENTINEL = "__INSUFFICIENT_DATA__";
+    const THREAD_ID_STORAGE_KEY = "eda_thread_id";
 
     const FALLBACK_MESSAGES = {
         tr: "Mevcut veritabanı kayıtları ve harici kaynaklarda bu analizi doğrulamak için yeterli veri bulunamadı. Yanıltıcı bilgi üretmemek adına işlem sonlandırıldı. Lütfen sorunuzu farklı parametrelerle detaylandırın.",
         en: "I was unable to verify sufficient data across internal databases and external sources to provide an accurate answer. Please refine or expand your inquiry."
     };
+
+    /* ================================
+       GÜVENİLİR ALAN ADLARI
+       Backend'deki trusted_domains listesi ile aynı tutulmalı.
+    ================================ */
+    const TRUSTED_DOMAINS = [
+        "webrazzi.com",
+        "eticaret.gov.tr",
+        "ticaret.gov.tr",
+        "bloomberght.com",
+        "dunya.com",
+        "ekonomim.com",
+        "reuters.com",
+        "lojistikdernegi.org.tr",
+        "utikad.org.tr",
+        "sikayetvar.com",
+        "tuik.gov.tr",
+        "tubisad.org.tr",
+        "marketingturkiye.com.tr",
+        "pazarlamasyon.com.tr"
+    ];
+
+    function isTrustedDomain(url) {
+        try {
+            const hostname = new URL(url).hostname.replace(/^www\./, "").toLowerCase();
+            return TRUSTED_DOMAINS.some(domain => hostname === domain || hostname.endsWith("." + domain));
+        } catch (e) {
+            return false;
+        }
+    }
+
+    /* ================================
+       OTURUM (THREAD) ID YÖNETİMİ
+
+       Cookie'ye tek başına güvenmiyoruz: farklı port/origin,
+       SameSite/Secure kısıtları veya tarayıcı ayarları cookie'nin
+       backend'e geri gitmesini engelleyebilir. localStorage'da
+       tuttuğumuz sabit bir thread_id'yi her istekte X-Thread-ID
+       header'ıyla açıkça gönderiyoruz; backend önce bu header'a,
+       yoksa cookie'ye bakar.
+    ================================ */
+    function getOrCreateThreadId() {
+        try {
+            let threadId = localStorage.getItem(THREAD_ID_STORAGE_KEY);
+            if (!threadId) {
+                threadId = (crypto && crypto.randomUUID)
+                    ? crypto.randomUUID()
+                    : "session_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 10);
+                localStorage.setItem(THREAD_ID_STORAGE_KEY, threadId);
+            }
+            return threadId;
+        } catch (e) {
+            // localStorage kapalı/erişilemez (gizli sekme kısıtı vb.) olursa
+            // en azından bu sekme ömrü boyunca sabit kalan bir id üret.
+            console.warn("localStorage kullanılamıyor, geçici thread_id üretiliyor:", e);
+            if (!window.__edaFallbackThreadId) {
+                window.__edaFallbackThreadId = "session_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 10);
+            }
+            return window.__edaFallbackThreadId;
+        }
+    }
 
     function isEnglish(text) {
         if (!text) return false;
@@ -567,10 +712,16 @@
 
         sources.forEach(src => {
             if (!src || !src.url) return;
+
+            // Frontend tarafında da güven doğrulaması (savunma katmanı)
+            if (!isTrustedDomain(src.url)) return;
+
             let hostname = src.url;
             try {
                 hostname = new URL(src.url).hostname.replace(/^www\./, "");
-            } catch (e) {}
+            } catch (e) {
+                return;
+            }
 
             const card = document.createElement("a");
             card.className = "source-card";
@@ -587,6 +738,8 @@
             grid.appendChild(card);
         });
 
+        if (grid.children.length === 0) return;
+
         wrap.appendChild(grid);
         container.appendChild(wrap);
     }
@@ -595,24 +748,8 @@
     function extractSources(text) {
         const sources = [];
 
-        // 1. Tavily node formatı: Source (https://...): ...
-        const tavilyRegex = /(?:Source|Kaynak)\s*\(\s*(https?:\/\/[^\s\)]+)\s*\):?/gi;
-        let match;
-        while ((match = tavilyRegex.exec(text)) !== null) {
-            const url = match[1];
-            try {
-                const domain = new URL(url).hostname.replace(/^www\./, '');
-                if (!sources.some(s => s.url === url)) {
-                    sources.push({ url: url, title: domain });
-                }
-            } catch (e) {}
-        }
-
-        // 2. Markdown link formatı: [metin](https://...)
-        const markdownLinkRegex = /\[([^\]]+)\]\((https?:\/\/[^\s\)]+)\)/g;
-        while ((match = markdownLinkRegex.exec(text)) !== null) {
-            const label = match[1];
-            const url = match[2];
+        function pushSource(url, label) {
+            if (!isTrustedDomain(url)) return;
             try {
                 const domain = new URL(url).hostname.replace(/^www\./, '');
                 if (!sources.some(s => s.url === url)) {
@@ -621,26 +758,126 @@
             } catch (e) {}
         }
 
-        // 3. Olası JSON formatı: [SOURCES_START] ... [SOURCES_END]
+        // 1. Standart format: Source (https://...): açıklama  /  Kaynak (https://...):
+        const standardRegex = /(?:Source|Kaynak)\s*\(\s*(https?:\/\/[^\s\)]+)\s*\)\s*:?/gi;
+        let match;
+        while ((match = standardRegex.exec(text)) !== null) {
+            pushSource(match[1]);
+        }
+
+        // 2. Ters/satır-arası format: (Source: https://...)  /  (Kaynak: https://...)
+        //    LLM talimata uymayıp cümle içine sıkıştırırsa da yakalanır.
+        const inlineRegex = /\(\s*(?:Source|Kaynak)\s*:\s*(https?:\/\/[^\s\)]+)\s*\)/gi;
+        while ((match = inlineRegex.exec(text)) !== null) {
+            pushSource(match[1]);
+        }
+
+        // 3. Markdown link formatı: [metin](https://...)
+        const markdownLinkRegex = /\[([^\]]+)\]\((https?:\/\/[^\s\)]+)\)/g;
+        while ((match = markdownLinkRegex.exec(text)) !== null) {
+            pushSource(match[2], match[1]);
+        }
+
+        // 4. Olası JSON formatı: [SOURCES_START] ... [SOURCES_END]
         const jsonRegex = /\[SOURCES_START\]([\s\S]*?)\[SOURCES_END\]/;
         const jsonMatch = text.match(jsonRegex);
         if (jsonMatch) {
             try {
                 const parsed = JSON.parse(jsonMatch[1].trim());
                 if (Array.isArray(parsed)) {
-                    parsed.forEach(p => {
-                        if (p && p.url && !sources.some(s => s.url === p.url)) {
-                            sources.push(p);
-                        }
-                    });
+                    parsed.forEach(p => { if (p && p.url) pushSource(p.url, p.title); });
                 }
-            } catch(e) {}
+            } catch (e) {}
             text = text.replace(jsonRegex, "").trim();
         }
 
-        // Metindeki ham 'Source (url):' satırlarını temizle
-        let cleanText = text.replace(tavilyRegex, "").trim();
+        // Metindeki ham kaynak referanslarını (her iki formatı da) temizle.
+        // Markdown link'lere dokunmuyoruz; marked.js onları zaten düzgün
+        // <a> etiketine çevirip anlamlı şekilde gösteriyor.
+        let cleanText = text
+            .replace(standardRegex, "")
+            .replace(inlineRegex, "")
+            .trim();
+
+        // 5. GÜVENLİK AĞI: "Kaynaklar:"/"Sources:" başlığı altında LLM'in
+        // düz metin (başlık, cümle vb.) yazdığı kalıntı bloğu temizle.
+        const trailingHeadingRegex =
+            /\n{0,2}(?:^|\n)\s*(?:Kaynaklar|Sources)\s*:?\s*(?:\n[\s\S]*)?$/i;
+        cleanText = cleanText.replace(trailingHeadingRegex, "").trim();
+
+        // 6. Satır arası temizlikten sonra kalabilecek boş parantez/fazla
+        // boşluk/aşırı boş satır kalıntılarını sadeleştir.
+        cleanText = cleanText
+            .replace(/\(\s*\)/g, "")
+            .replace(/[ \t]+([.,;:])/g, "$1")
+            .replace(/\n{3,}/g, "\n\n")
+            .trim();
+
         return { cleanText, sources };
+    }
+
+    function formatTime(date) {
+        return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    }
+
+    // Balona saat damgası + kopyala butonu bağlar (hem ilk yüklemede hem AJAX'ta çağrılır)
+    function attachBubbleChrome(bubbleEl, copyText) {
+        if (!bubbleEl) return;
+
+        const timeEl = bubbleEl.querySelector(".msg-time");
+        if (timeEl && !timeEl.textContent) {
+            timeEl.textContent = formatTime(new Date());
+        }
+
+        const copyBtn = bubbleEl.querySelector(".copy-btn");
+        if (!copyBtn) return;
+
+        // Kopyalanacak güncel metni her render'da butona yaz (onclick içinde
+        // her seferinde en son değeri okumak için, closure sorununu önler)
+        copyBtn.dataset.copyText = copyText || "";
+
+        if (copyBtn.dataset.bound) return; // olay dinleyicisi zaten bağlı
+
+        copyBtn.dataset.bound = "1";
+
+        const copyIcon = copyBtn.innerHTML; // orijinal "kopyala" ikonunu sakla
+        const checkIcon = `
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 6 9 17l-5-5"></path>
+            </svg>
+        `;
+
+        copyBtn.addEventListener("click", async () => {
+            if (copyBtn.classList.contains("copied")) return; // spam-tıklamayı engelle
+
+            const textToCopy = copyBtn.dataset.copyText || "";
+
+            try {
+                await navigator.clipboard.writeText(textToCopy);
+            } catch (e) {
+                // Fallback: clipboard API bulunmuyorsa (http, eski tarayıcı vb.)
+                try {
+                    const tmp = document.createElement("textarea");
+                    tmp.value = textToCopy;
+                    tmp.style.position = "fixed";
+                    tmp.style.opacity = "0";
+                    document.body.appendChild(tmp);
+                    tmp.select();
+                    document.execCommand("copy");
+                    document.body.removeChild(tmp);
+                } catch (e2) {
+                    console.warn("Kopyalama başarısız:", e2);
+                    return;
+                }
+            }
+
+            copyBtn.innerHTML = checkIcon;
+            copyBtn.classList.add("copied");
+            setTimeout(() => {
+                copyBtn.innerHTML = copyIcon;
+                copyBtn.classList.remove("copied");
+            }, 1200);
+        });
     }
 
     function renderSpecificBubble(rawText, targetEl, bubbleEl, questionText) {
@@ -651,6 +888,7 @@
 
             if (!text) {
                 targetEl.innerHTML = '<div class="answer-empty">Bu soru için metin özeti oluşturulmadı.</div>';
+                attachBubbleChrome(bubbleEl, "");
                 return;
             }
 
@@ -659,6 +897,7 @@
             // 1. Sentinel Kontrolü (__INSUFFICIENT_DATA__)
             if (text === INSUFFICIENT_SENTINEL || text.includes(INSUFFICIENT_SENTINEL)) {
                 renderInsufficientData(targetEl, bubbleEl, questionText);
+                attachBubbleChrome(bubbleEl, "");
                 return;
             }
 
@@ -701,9 +940,13 @@
                 renderSourceCards(targetEl, sources, lang);
             }
 
+            // 7. Saat damgası + kopyala butonu (temizlenmiş metni kopyalar)
+            attachBubbleChrome(bubbleEl, text);
+
         } catch (err) {
             console.error("Bubble render hatası:", err);
             targetEl.innerHTML = '<div class="answer-empty">Yanıt işlenirken bir sorun oluştu.</div>';
+            attachBubbleChrome(bubbleEl, "");
         }
     }
 
@@ -794,6 +1037,7 @@
 
     async function sendChatRequest(question) {
         const enQuery = isEnglish(question);
+        const threadId = getOrCreateThreadId();
 
         const inputs = [document.getElementById("question"), document.getElementById("questionBottom")];
         inputs.forEach(inp => {
@@ -839,7 +1083,11 @@
         try {
             const res = await fetch("/chat/", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-Thread-ID": threadId // Backend, oturumu bununla eşleştirir (cookie yerine/yanında)
+                },
+                credentials: "same-origin", // Cookie destekli backend'ler için de garanti altına al
                 body: JSON.stringify({ question })
             });
 

@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 
 from src.graphs.project_models import get_models
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate,MessagesPlaceholder
 from src.tools.db_tools import get_schema_summary,execute_sql_query
 from pydantic import  BaseModel,Field
 from typing import Optional,Literal
@@ -33,7 +33,9 @@ Your task:
 2. Under no circumstances should you force-guess or attempt to retrieve data from unrelated tables!
 3. Write a valid PostgreSQL SELECT query using ONLY the table and column names provided in the schema.
 4. Always append a reasonable LIMIT clause to prevent fetching excessively large datasets (default: LIMIT 10), unless an aggregate without grouping is computed.
-5. JOIN tables using the correct foreign key relationships (e.g., order_id between orders and order_items).
+5. SCHEMA RELATIONSHIPS & JOINS:
+   - CRITICAL: 'seller_id' exists ONLY in 'order_items' (and 'sellers'). It DOES NOT exist in 'orders' or 'order_reviews'. 
+   - Never write 'SELECT seller_id FROM order_reviews' or 'SELECT seller_id FROM orders'. You must always join 'order_items' to access 'seller_id'.
 6. Generate SELECT queries ONLY; never write statements that modify data.
 7. DATE/TIME HANDLING & SARGABILITY: 
    - The database contains historical snapshot data. Never use `NOW()` or `CURRENT_DATE`.
@@ -45,11 +47,23 @@ Your task:
 9. Write the EXPLANATION, in the LANGUAGE the user uses to ask the question.
 10. AGGREGATION & UNIQUENESS:
     When counting entities from joined tables (e.g., counting orders, customers, or sellers), ALWAYS use `COUNT(DISTINCT column_id)` (e.g., `COUNT(DISTINCT o.order_id)`) to avoid duplicate counts caused by one-to-many relationships (like orders having multiple reviews or items).
+11. MULTI-TURN & CONTEXTUAL REFERENCES:
+    - If the user query is referential or requests a visualization (e.g. "bunları görselleştirir misin", "bunu grafikleştir", "grafiğini çiz", "tablo yap"):
+      * It IS ALWAYS FEASIBLE (is_feasible = True).
+      * Do NOT decline just because the user asked for a "graph" or "visualize".
+      * Look at the immediately preceding turn in 'chat_history'. Identify the query and metrics that produced those records (e.g., top 3 ordered products: order_items joined with products, counting orders).
+      * RE-GENERATE the exact same SQL SELECT query that yields those exact data rows so the downstream charting engine can render the graph.
+12. CONTEXTUAL REUSE OF PREVIOUS ENTITIES:
+   - When the user asks a follow-up about entities returned in the immediately preceding table (e.g. "bu satıcılardan puanı en kötü olan", "birinci sıradaki ürün"):
+   - Inspect the 'chat_history' for the explicit IDs (seller_id, product_id) that were already listed.
+   - Pick that specific ID directly and filter by it: `WHERE oi.seller_id = '...'`
+   - DO NOT write complex nested subqueries to re-calculate rankings that were already established in the previous turn.
 """
 
 sql_prompt = ChatPromptTemplate(
     [
         ("system",system_prompt),
+        MessagesPlaceholder(variable_name="chat_history",optional=True),
         ("user", "DataBase Schema:{schema} Question:{question}")
     ]
 )

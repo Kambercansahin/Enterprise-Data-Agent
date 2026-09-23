@@ -2,7 +2,7 @@ from dotenv import load_dotenv
 from typing import Optional
 
 from pydantic import BaseModel, Field
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate,MessagesPlaceholder
 from src.graphs.project_models import get_models
 
 #for trying
@@ -58,6 +58,7 @@ Set unused channels strictly to None."""
 
 decompose_prompt = ChatPromptTemplate.from_messages([
     ("system", system_prompt),
+    MessagesPlaceholder(variable_name="chat_history", optional=True),
     ("user", "Question: {question}")
 ])
 

@@ -17,10 +17,10 @@ trusted_domains = [
     "tuik.gov.tr",
     "tubisad.org.tr",
     "marketingturkiye.com.tr",
-    "pazarlamasyon.com",
+    "pazarlamasyon.com.tr",
 ]
 
-search = TavilySearch(max_results=10)
+search = TavilySearch(max_results=10, include_domains=trusted_domains)
 
 
 def websearch(state: GraphState) -> Dict[str, Any]:
@@ -52,9 +52,7 @@ def websearch(state: GraphState) -> Dict[str, Any]:
                 print(f"--- Refused Source: {source_url}")
 
         if not filtered_results:
-            formatted_result = (
-                "No verified data regarding this question could be found in the permitted industry sources."
-            )
+            formatted_result = "__INSUFFICIENT_DATA__"
         else:
             top_results = filtered_results[:5]
             formatted_result = "\n\n".join([
@@ -63,6 +61,6 @@ def websearch(state: GraphState) -> Dict[str, Any]:
 
     except Exception as e:
         print(f"Tavily Error: {e}")
-        formatted_result = f"The search service was temporarily unable to respond: {str(e)}"
+        formatted_result = "__INSUFFICIENT_DATA__"
 
-    return {"web_data": formatted_result,"sql_query": None,}
+    return {"web_data": formatted_result, "sql_query": None}

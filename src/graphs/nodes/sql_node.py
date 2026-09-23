@@ -10,9 +10,14 @@ def sql(state:GraphState) -> Dict[str,Any]:
     schema = get_schema_summary()
     question = state["question"]
 
+    raw_messages = state.get("messages") or state.get("chat_history") or []
+    recent_history = (
+        raw_messages[-4:] if len(raw_messages) > 4 else raw_messages
+    )
     sql_ch = sql_chain.invoke({
         "schema":schema,
-        "question":question
+        "question":question,
+        "chat_history":recent_history
     })
 
     if not sql_ch.is_feasible or not sql_ch.query:
