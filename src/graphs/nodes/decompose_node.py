@@ -24,9 +24,10 @@ def decompose(state:GraphState) -> Dict[str,Any]:
     context_pool = {}
     reasoning_logs = []
     raw_messages = state.get("messages") or []
+    recent_history = raw_messages[-4:] if len(raw_messages) > 4 else raw_messages
     decompose_c = decompose_chain.invoke({
         "question":question,
-        "chat_history": raw_messages
+        "chat_history": recent_history
     })
 
     if decompose_c.sql_question:
@@ -36,7 +37,8 @@ def decompose(state:GraphState) -> Dict[str,Any]:
         #created sql
         sql_ch = sql_chain.invoke({
             "schema":sql_sch,
-            "question":decompose_c.sql_question
+            "question":decompose_c.sql_question,
+            "messages": recent_history
         })
 
         if sql_ch.is_feasible and sql_ch.query:
@@ -48,11 +50,15 @@ def decompose(state:GraphState) -> Dict[str,Any]:
                 #we are saving clean text into context_pool, not a raw tuple dump.
                 # convert raw SQL output to clean text: instead of "[('bed bath table', 11115)...]", use "bed_bath_table, health beauty, sports leisure"
                 if isinstance(sql_data, list):
-                    clean_names = ", ".join([
-                        str(row[0]) if isinstance(row, (tuple, list)) else str(row)
-                        for row in sql_data
-                    ])
-                    context_pool["sql"] = clean_names
+                    extracted_names = []
+                    for row in sql_data:
+                        if isinstance(row, dict):
+                            extracted_names.append(str(list(row.values())[0]))
+                        elif isinstance(row, (tuple, list)):
+                            extracted_names.append(str(row[0]))
+                        else:
+                            extracted_names.append(str(row))
+                    context_pool["sql"] = ", ".join(extracted_names)
                 else:
                     context_pool["sql"] = str(sql_data)
                 reasoning_logs.append(f"SQL Question ({decompose_c.sql_question}): {context_pool['sql']}")

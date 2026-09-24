@@ -1,0 +1,7 @@
+.venv
+__pycache__
+*.pyc
+.git
+.env
+src/graphs/.env
+.pytest_cache
