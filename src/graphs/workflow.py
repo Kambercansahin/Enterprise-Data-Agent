@@ -97,7 +97,7 @@ def grader_hallucination_and_answer(state:GraphState)->str:
     all_context = []
 
     #if sql data is not None we are adding
-    if sql_data and str(sql_data).strip() not in ["No Data", "None"]:
+    if sql_data and str(sql_data).strip() not in ["No Data", "None","No SQL data found."]:
         all_context.append(f"SQL DATA:{sql_data}")
 
     # if rag data is not None we are adding
@@ -111,7 +111,9 @@ def grader_hallucination_and_answer(state:GraphState)->str:
     # if reasoning steps  is not None we are adding
     if reasoning_steps and str(reasoning_steps).strip() not in ["No Data", "None"]:
         all_context.append(f"Reasoning Steps:{reasoning_steps}")
+
     raw_messages = state.get("messages") or []
+    recent_history = raw_messages[-4:] if len(raw_messages) > 4 else raw_messages
     if raw_messages:
         recent_history_texts = [
             f"{m.type.upper()}: {m.content[:200]}" for m in raw_messages[-3:]
@@ -131,7 +133,8 @@ def grader_hallucination_and_answer(state:GraphState)->str:
         print("--Decision:Not Hallucination--")
         answer = ans_chain.invoke({
             "question": question,
-            "generation": generation_answer
+            "generation": generation_answer,
+            "chat_history": recent_history
         })
         print(f"--Check the Answer (binary_score: {answer.binary_score})--")
         if answer.binary_score == "yes":

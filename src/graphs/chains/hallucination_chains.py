@@ -42,6 +42,10 @@ SCORING CRITERIA:
   * Translating, summarizing, or synthesizing insights from foreign-language (Portuguese) reviews into Turkish is fully accepted.
   * Structural introductions, formatting, and high-level summaries explaining the data are NOT hallucinations.
 
+- MultiStep & Qualitative Synthesis:
+  * When 'reasoning_steps' or qualitative customer voice is present, strategic summaries, root-cause deductions, and synthesizing takeaways derived from those steps are NOT hallucinations ('no').
+  * As long as the core entities and metrics match, executive synthesis is fully grounded.
+
 STRICT RULE:
 Provide strictly adhering output with a binary score: 'yes' (hallucinated) or 'no' (grounded).
 

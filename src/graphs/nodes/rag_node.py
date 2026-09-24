@@ -13,14 +13,26 @@ def rag(state:GraphState) -> Dict[str,Any]:
 
     #if question is not in the qrant
     if not rag_text:
-        return {"rag_data": None}
+        return {
+            "rag_data": None,
+            "sql_data": None,
+            "sql_query": None
+        }
 
     formatted_context = "\n\n".join([f"Review {i}: {r}" for i, r in enumerate(rag_text, 1)])
 
     response = rag_grader_chain.invoke({"question":question,"context":formatted_context} )
 
     if response.datasource == "yes":
-        return {"rag_data":formatted_context}
+        return {
+            "rag_data": formatted_context,
+            "sql_data": None,
+            "sql_query": None
+        }
 
-    return {"rag_data":None}
+    return {
+        "rag_data": None,
+        "sql_data": None,
+        "sql_query": None
+    }
 

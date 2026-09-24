@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-def get_models(model_name="gemini-2.5-flash-lite",temperature=0.2):
+def get_models(model_name="gemini-2.5-flash-lite",temperature=0.0):
     return ChatGoogleGenerativeAI(
         model = model_name,
         temperature = temperature

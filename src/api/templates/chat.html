@@ -475,7 +475,7 @@
     <div class="app-header-inner">
         <span class="app-logo-dot"></span>
         <span class="app-title">Enterprise Data Agent</span>
-        <span class="app-badge">Kurumsal</span>
+        <span class="app-badge">KCS</span>
     </div>
 </div>
 
@@ -961,7 +961,25 @@
         });
     }
 
+    /* ================================
+       GRAFİK ÇİZİM MOTORU
+
+       Desteklenen tipler: bar, line, pie, doughnut, radar, polarArea, scatter.
+       - bar / line / scatter: config.data = düz sayısal dizi, config.labels ile hizalı.
+       - pie / doughnut / polarArea: config.data = düz sayısal dizi (parça-bütün oranı).
+       - radar: config.datasets = [{name, data:[...]}, ...] (birden fazla varlık/metrik karşılaştırması).
+
+       Backend'den (LLM) beklenenden farklı/desteklenmeyen bir "type" gelirse
+       güvenli varsayılan olan "bar"a düşülür.
+    ================================ */
+    const ALLOWED_CHART_TYPES = ['bar', 'line', 'pie', 'doughnut', 'radar', 'polarArea', 'scatter'];
+    const CHART_PALETTE = ['#10a37f', '#2a9d8f', '#48cae4', '#e76f51', '#f4a261', '#8ecae6', '#e63946', '#457b9d'];
+
     function drawChart(container, config) {
+        if (!config || !ALLOWED_CHART_TYPES.includes(config.type)) {
+            config = Object.assign({}, config, { type: 'bar' });
+        }
+
         const cardWrapper = document.createElement("div");
         cardWrapper.className = "chart-container-card";
         const canvas = document.createElement("canvas");
@@ -970,12 +988,79 @@
         cardWrapper.appendChild(canvas);
         container.appendChild(cardWrapper);
 
-        const chartType = config.type || 'bar';
-        const rawData = config.data || [];
-        const numericData = rawData.map(parseNumericValue);
-
+        const chartType = config.type;
         const rawLabels = config.labels || [];
         const cleanLabels = rawLabels.map(l => String(l).length > 12 ? '...' + String(l).slice(-8) : l);
+
+        // ---- RADAR: çoklu varlık/metrik karşılaştırması (datasets üzerinden) ----
+        if (chartType === 'radar') {
+            const rawDatasets = config.datasets || [];
+            const datasets = rawDatasets.map((ds, i) => ({
+                label: ds.name || `Seri ${i + 1}`,
+                data: (ds.data || []).map(parseNumericValue),
+                borderColor: CHART_PALETTE[i % CHART_PALETTE.length],
+                backgroundColor: CHART_PALETTE[i % CHART_PALETTE.length] + '33',
+                borderWidth: 2,
+                pointBackgroundColor: CHART_PALETTE[i % CHART_PALETTE.length]
+            }));
+
+            new Chart(canvas, {
+                type: 'radar',
+                data: { labels: rawLabels, datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: true },
+                        title: { display: !!config.title, text: config.title, font: { size: 14, weight: 'bold' } }
+                    },
+                    scales: { r: { beginAtZero: true, grid: { color: '#f1f5f9' } } }
+                }
+            });
+            return;
+        }
+
+        // ---- PIE / DOUGHNUT / POLAR AREA: parça-bütün oranı, tek düz dizi ----
+        if (chartType === 'pie' || chartType === 'doughnut' || chartType === 'polarArea') {
+            const rawData = config.data || [];
+            const numericData = rawData.map(parseNumericValue);
+
+            new Chart(canvas, {
+                type: chartType,
+                data: {
+                    labels: rawLabels,
+                    datasets: [{
+                        data: numericData,
+                        backgroundColor: CHART_PALETTE.slice(0, numericData.length),
+                        borderWidth: 1,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: true, position: 'right' },
+                        title: { display: !!config.title, text: config.title, font: { size: 14, weight: 'bold' } },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const value = context.parsed;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const pct = total ? ((value / total) * 100).toFixed(1) : 0;
+                                    return `${context.label}: ${value.toLocaleString()} (${pct}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            return;
+        }
+
+        // ---- BAR / LINE / SCATTER: düz sayısal dizi, kategori/eksen bazlı ----
+        const rawData = config.data || [];
+        const numericData = rawData.map(parseNumericValue);
 
         new Chart(canvas, {
             type: chartType,
@@ -986,7 +1071,7 @@
                     data: numericData,
                     backgroundColor: chartType === 'line'
                         ? 'rgba(16, 163, 127, 0.15)'
-                        : ['#10a37f', '#2a9d8f', '#48cae4', '#e76f51', '#f4a261'],
+                        : CHART_PALETTE.slice(0, numericData.length),
                     borderColor: '#10a37f',
                     borderWidth: 2,
                     tension: 0.35,
