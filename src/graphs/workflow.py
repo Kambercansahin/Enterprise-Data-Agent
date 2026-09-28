@@ -84,8 +84,8 @@ def grader_hallucination_and_answer(state:GraphState)->str:
     web_data = state.get("web_data")
     reasoning_steps = state.get("reasoning_steps")
     retry_count = state.get("retry_count", 0)
-    #if retry count gh 2 return give up
-    if retry_count >= 2:
+    #if retry count gh 4 return give up
+    if retry_count >= 4:
         print(f"--- !!! RETRY COUNT ({retry_count})  !!! ---")
         return "give_up"
 
@@ -145,6 +145,11 @@ def grader_hallucination_and_answer(state:GraphState)->str:
             return "not_useful"
     else:
         print("--Decision:Hallucination is Yes---")
+        state["last_feedback"] = (
+            "CRITICAL CORRECTION: Your previous attempt was flagged for hallucination "
+            "because it included ungrounded claims, numbers, or entities not present in the provided context "
+            "(SQL data, customer reviews/RAG, web search data, or reasoning steps). "
+            "You must rely strictly and solely on the provided context channels.")
         return "not_supported"
 
 work_flow.set_conditional_entry_point(
@@ -172,7 +177,7 @@ work_flow.add_conditional_edges(
     {
         "not_supported":GENERATE,
         "useful": END,
-        "not_useful" : WEBSEARCH,
+        "not_useful" : GENERATE,
         "give_up": "fallback"
 
     }

@@ -55,6 +55,12 @@ Analyze the user query regardless of language (Turkish, English, Portuguese) and
    - If the user asks for aggregations, counts, or rankings of complaints/bad reviews by category, product, or seller (e.g., "en çok şikayet alan ilk 3 kategori", "hangi ürün daha çok olumsuz puan aldı?"):
      * ROUTE TO 'SQL'! This requires counting low review scores in relational tables.
    - ONLY route to 'RAG' if the user asks for qualitative opinions, themes, or reasons behind the complaints (e.g., "müşteriler neden şikayet ediyor?", "kargo paketlemesi hakkında ne diyorlar?").
+- PUNCTUATION INSENSITIVITY: 
+  * Do NOT let punctuation marks (like question marks '?', exclamation marks '!') or capitalization influence your routing decision. 
+  * Route purely based on the core semantic intent and data requirements of the query, ignoring whether it ends with a question mark or not.
+  - COLLOQUIAL & SHORTENED QUERY HANDLING:
+  * Users may use informal, shortened, or daily language without formal suffixes (e.g., instead of "şikayetleri nelerdir?", they might just write "şikayetler neler?", "ne diyorlar?", "durum ne?").
+  * Do NOT let missing suffixes or conversational phrasing confuse the routing decision. Focus purely on the underlying analytical or data retrieval intent.
 """
 
 

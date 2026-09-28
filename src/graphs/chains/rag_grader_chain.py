@@ -3,7 +3,7 @@ from pydantic import BaseModel,Field
 from typing import Literal
 
 from src.graphs.project_models import get_models
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate,MessagesPlaceholder
 from src.tools.qrant_tools import  search_reviews_in_qdrant
 load_dotenv()
 
@@ -34,6 +34,7 @@ Reviews Context:
 rag_grader_prompt = ChatPromptTemplate(
     [
         ("system",system_prompt),
+        MessagesPlaceholder(variable_name="chat_history", optional=True),
         ("user","User Question:{question}")
     ]
 )

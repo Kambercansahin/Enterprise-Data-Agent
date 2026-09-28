@@ -8,6 +8,9 @@ from src.tools.qrant_tools import search_reviews_in_qdrant
 def rag(state:GraphState) -> Dict[str,Any]:
     print("---RAG NODE---")
     question =state["question"]
+    #Chat history
+    raw_messages = state.get("messages") or []
+    recent_history = raw_messages[-4:] if len(raw_messages) > 4 else raw_messages
 
     rag_text = search_reviews_in_qdrant(query_text=question,limit=4)
 
@@ -21,7 +24,7 @@ def rag(state:GraphState) -> Dict[str,Any]:
 
     formatted_context = "\n\n".join([f"Review {i}: {r}" for i, r in enumerate(rag_text, 1)])
 
-    response = rag_grader_chain.invoke({"question":question,"context":formatted_context} )
+    response = rag_grader_chain.invoke({"question":question,"context":formatted_context,"chat_history": recent_history} )
 
     if response.datasource == "yes":
         return {

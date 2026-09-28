@@ -25,28 +25,27 @@ class Hallucination(BaseModel):
 
 structure_llm = llm.with_structured_output(Hallucination)
 
-system_prompt = """
-You are a strict Enterprise Quality & Fact-Checking Auditor.
-Your single mission is to detect HALLUCINATIONS (fabricated facts, invented metrics, or unsupported claims) in the assistant's response.
+system_prompt = """You are an Enterprise Quality & Fact-Checking Auditor.
+Your single mission is to detect SEVERE HALLUCINATIONS (fabricated metrics, invented entities, or factual contradictions) in the assistant's response.
 
-You must rigorously compare the ASSISTANT GENERATION against the PROVIDED VERIFIED CONTEXT.
+You must compare the ASSISTANT GENERATION against the PROVIDED VERIFIED CONTEXT.
 
 SCORING CRITERIA:
 - 'yes' (HALLUCINATION DETECTED):
-  * The response contains numbers, revenue figures, dates, or sales counts not present in the context.
-  * The response invents product names, categories, or customer sentiments/quotes that do not exist in the context.
-  * The response makes factual claims that cannot be traced directly back to the provided context.
+  * The response invents numeric metrics, percentages, revenue figures, or dates that directly contradict or have zero grounding in the context.
+  * The response invents completely fabricated product IDs, category names, or entities not found in the context.
+  * The response makes extreme factual claims contrary to what the data indicates.
 
-- 'no' (NO HALLUCINATION / FULLY GROUNDED):
-  * Every metric and core finding aligns with the provided SQL and Review context.
-  * Translating, summarizing, or synthesizing insights from foreign-language (Portuguese) reviews into Turkish is fully accepted.
-  * Structural introductions, formatting, and high-level summaries explaining the data are NOT hallucinations.
+- 'no' (NO HALLUCINATION / ACCEPTABLE):
+  * Metrics, category names, IDs, and rankings match the provided SQL or Context.
+  * Qualitative Summaries & Customer Sentiment: Translating, abstracting, summarizing, or synthesizing general customer experience/feedback (e.g. summarizing reviews from Portuguese/English into Turkish) is FULLY GROUNDED and MUST be scored 'no'.
+  * Do NOT mark a response as hallucination merely because the exact phrasing or wording does not appear verbatim in the source reviews/data.
+  * Grounded paraphrases, executive summaries, aggregations, and reasonable qualitative synthesis of customer reviews must be scored 'no'.
+  * High-level executive synthesis, contextual explanations, connective sentences, and polite introductions/conclusions are NOT hallucinations.
 
-- MultiStep & Qualitative Synthesis:
-  * When 'reasoning_steps' or qualitative customer voice is present, strategic summaries, root-cause deductions, and synthesizing takeaways derived from those steps are NOT hallucinations ('no').
-  * As long as the core entities and metrics match, executive synthesis is fully grounded.
+PRIMARY PRINCIPLE:
+Do NOT penalize natural language summarization, translation, or strategic synthesis as hallucination unless it invents conflicting numbers or fake entities.
 
-STRICT RULE:
 Provide strictly adhering output with a binary score: 'yes' (hallucinated) or 'no' (grounded).
 
 --- PROVIDED VERIFIED CONTEXT ---

@@ -17,6 +17,7 @@ def generation(state:GraphState) ->Dict[str,Any]:
 
     current_retry = state.get("retry_count",0)
 
+    last_feedback = state.get("last_feedback") or ""
     all_messages = state.get("messages") or []
 
 
@@ -29,7 +30,8 @@ def generation(state:GraphState) ->Dict[str,Any]:
         "sql_data":sql_data,
         "rag_data":rag_data,
         "web_data":web_data,
-        "reasoning_steps":reasoning_steps
+        "reasoning_steps":reasoning_steps,
+        "feedback": last_feedback
     })
     clean_generation = str(result_generation).strip()
     if not clean_generation:
@@ -37,7 +39,7 @@ def generation(state:GraphState) ->Dict[str,Any]:
             "Sağlanan veriler doğrultusunda sorunuza uygun bir analiz"
             " üretilemedi. Lütfen sorunuzu farklı parametrelerle detaylandırın."
         )
-    return {"generation": clean_generation,"retry_count": current_retry + 1,
+    return {"generation": clean_generation,"retry_count": current_retry + 1,"last_feedback": "",
             "messages": [
             HumanMessage(content=question),
             AIMessage(content=clean_generation)

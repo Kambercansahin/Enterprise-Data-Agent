@@ -124,7 +124,7 @@ generation_prompt = ChatPromptTemplate(
         ("system",system_prompt),
         #for the LLM to remember
         MessagesPlaceholder(variable_name="chat_history",optional=True),
-        ("user","User Question:{question}")
+        ("user", "User Question: {question}\n\n[PREVIOUS ATTEMPT CORRECTION HINT (If any)]: {feedback}")
     ]
 )
 
