@@ -336,7 +336,7 @@ Geleneksel BI (İş Zekâsı) araçları yalnızca birinci kümeye erişebilir; 
 
 Bu proje, sayısal doğrular ile niteliksel bağlamı **tek bir akıllı karar destek arayüzünde** birleştiren hibrit bir sistemdir. Bir yönetici:
 
-> *"En çok ciro getiren kategoride teslimat kaynaklı müşteri şikayetleri nelerdir?"*
+> *"En çok satılan ilk 3 ürünün müşteri memnuniyeti ve yorumlardaki ana şikayetleri neler?"*
 
 veya
 
