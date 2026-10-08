@@ -43,7 +43,8 @@ def search_reviews_in_qdrant(query_text: str, limit: int = 4,score_threshold: fl
     for point in response.points:
         payload = point.payload or {}
         text = (
-                payload.get("review_comment_message")
+                payload.get("comment")
+                or payload.get("review_comment_message")
                 or payload.get("review_text")
                 or payload.get("text")
                 or str(payload)

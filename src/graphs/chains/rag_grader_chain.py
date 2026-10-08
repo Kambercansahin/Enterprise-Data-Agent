@@ -8,7 +8,7 @@ from src.tools.qrant_tools import  search_reviews_in_qdrant
 load_dotenv()
 
 class RagGrader(BaseModel):
-    """You will check whether the answer retrieved from the context is consistent with the user's question."""
+    """Checks whether the retrieved customer reviews are relevant to the user's question."""
 
     datasource:Literal["yes","no"]=Field(
         ...,

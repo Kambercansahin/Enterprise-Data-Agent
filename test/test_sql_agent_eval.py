@@ -9,6 +9,8 @@ from deepeval.test_case import LLMTestCase,SingleTurnParams
 
 #models
 from src.graphs.workflow import graph
+from benchmarks.golden_dataset import GOLDEN_BENCHMARK_SUITE
+from src.tools.db_tools import get_schema_summary
 
 @pytest.mark.parametrize(
     "id_number,user_question",
@@ -51,4 +53,39 @@ def test_sql_agent(id_number,user_question):
     )
 
     evaluate(test_cases=[test_case], metrics=[hallucination_eval, answer_control])
+
+@pytest.mark.parametrize("benchmark", GOLDEN_BENCHMARK_SUITE)
+def test_sql_query(benchmark):
+    correctness = GEval(
+        name="correctness",
+        criteria="does the generated SQL query express the user's question accurately and without errors, in accordance with the database schema?",
+        evaluation_params=[SingleTurnParams.ACTUAL_OUTPUT,SingleTurnParams.EXPECTED_OUTPUT],
+        threshold=0.6
+    )
+
+    question = benchmark["question"]
+
+    #schema
+    sqlSchema = get_schema_summary()
+
+    response_model = graph.invoke(
+        {"question":question},
+        config={"configurable": {"thread_id": f"test-{benchmark['id']}"}}
+    )
+
+    #sql query for GEval
+    sql_query = response_model.get("sql_query","")
+    if sql_query:
+        context_query = str(sql_query)
+    else:
+        context_query = "SQL query is empty"
+
+    test_case= LLMTestCase(
+        input=question,
+        actual_output=context_query,
+        expected_output= benchmark["ground_truth_sql"],
+        context=[sqlSchema]
+    )
+
+    evaluate(test_cases=[test_case], metrics=[correctness])
 

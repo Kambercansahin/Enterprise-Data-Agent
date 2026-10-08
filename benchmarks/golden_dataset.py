@@ -3,14 +3,15 @@ GOLDEN_BENCHMARK_SUITE = [
         "id": "tc_01_high_margin_categories",
         "question": "2018 Ağustos ayında teslim edilmiş siparişlerde ciroya göre ilk 5 ürün kategorisi nedir?",
         "ground_truth_sql": """
-            SELECT p.product_category_name, ROUND(SUM(oi.price), 2) AS total_revenue
-            FROM orders o
-            JOIN order_items oi ON o.order_id = oi.order_id
-            JOIN products p ON oi.product_id = p.product_id
-            WHERE o.order_purchase_timestamp >= '2018-08-01'
-              AND o.order_status = 'delivered'
-            GROUP BY p.product_category_name
-            ORDER BY total_revenue DESC
+           SELECT p.product_category_name, SUM(oi.price) AS total_revenue 
+            FROM orders AS o 
+            JOIN order_items AS oi ON o.order_id = oi.order_id 
+            JOIN products AS p ON oi.product_id = p.product_id 
+            WHERE o.order_status = 'delivered' 
+            AND o.order_delivered_customer_date >= '2018-08-01' 
+            AND o.order_delivered_customer_date < '2018-09-01' 
+            GROUP BY p.product_category_name 
+            ORDER BY total_revenue DESC 
             LIMIT 5;
         """,
         "expected_tables": ["orders", "order_items", "products"]
