@@ -141,6 +141,46 @@ flowchart TD
 - [x] **Google Cloud Run Deployment:** Cross-platform build (Cloud Build), `$PORT`-compatible Dockerfile, `europe-west3` region, automatic SSL + scale-to-zero
 
 ---
+## Testing and Automated Evaluation Suite
+
+The project includes an automated testing and evaluation pipeline built with **Pytest** and **DeepEval**, located in the `test/` directory. It covers routing, SQL evaluation, RAG semantic retrieval, Tavily web search, and multi-step reasoning.
+
+### Test Structure
+
+```text
+test/
+├── test_decompose.py          # Query planner / multi-step decomposition tests with pytest
+├── test_multi_step_agent.py   # Hybrid end-to-end evaluation (SQL + RAG + Web) with deepeval
+├── test_nodes_hygiene.py      # State and node isolation checks  with pytest
+├── test_rag_agent_eval.py     # Multilingual semantic retrieval tests with deepeval
+├── test_redis.py              # Cache and rate-limiter unit tests with pytest
+├── test_router_chain.py       # Semantic router classification tests with pytest
+├── test_sql_agent_eval.py     # SQL evaluation (GEval + DeepEval) with deepeval
+├── test_sql_safety.py         # Read-only guardrails and SQL safety checks with pytest
+└── test_web_agent.py          # Tavily search integration tests with deepeval
+```
+
+### Evaluation Metrics and Methods
+
+* **Dual-Layer SQL Evaluation (`test_sql_agent_eval.py`):** Combines DeepEval's `GEval` metric to assess SQL query correctness against reference queries from `GOLDEN_BENCHMARK_SUITE`, using the database schema as context, with `HallucinationMetric` and `AnswerRelevancyMetric` to evaluate generated answers.
+
+* **Hybrid Multi-Step and RAG/Web Evaluation:** Tests the components responsible for combining SQL data, multilingual customer feedback retrieved through Qdrant (`test_rag_agent_eval.py`), and external web research through Tavily (`test_web_agent.py`).
+
+* **Structural Routing and Safety Tests:** Uses Pytest to validate query routing to the appropriate expert nodes (`SQL`, `RAG`, `websearch`, and `MultiStep`), alongside SQL safety checks designed to prevent unauthorized write operations.
+
+### Evaluation Stack
+
+| Component               | Purpose                                                  |
+| ----------------------- | -------------------------------------------------------- |
+| Pytest                  | Unit tests, parameterized tests, and workflow validation |
+| DeepEval                | LLM-based evaluation of generated outputs                |
+| `GEval`                 | Reference-based SQL query correctness assessment         |
+| `HallucinationMetric`   | Hallucination risk assessment                            |
+| `AnswerRelevancyMetric` | Answer relevance evaluation                              |
+| Qdrant                  | Vector retrieval for customer feedback                   |
+| Tavily                  | External web search integration                          |
+
+This evaluation suite combines conventional software testing with LLM-based evaluation to assess individual components and complex workflows across the system.
 
 ## Screenshots
 
@@ -451,6 +491,46 @@ flowchart TD
 - [x] **Google Cloud Run Dağıtımı:** Cross-platform derleme (Cloud Build), `$PORT` uyumlu Dockerfile, `europe-west3` bölgesi, otomatik SSL + scale-to-zero
 
 ---
+## Test ve Otomatik Değerlendirme Altyapısı
+
+Proje, `test/` dizini altında **Pytest** ve **DeepEval** kullanılarak oluşturulmuş otomatik bir test ve değerlendirme altyapısına sahiptir. Bu altyapı; yönlendirme, SQL değerlendirmesi, RAG anlamsal erişimi, Tavily web araması ve çok adımlı akıl yürütme süreçlerini kapsar.
+
+### Test Yapısı
+
+```text
+test/
+├── test_decompose.py          # Query Planner / çok adımlı ayrıştırma testleri
+├── test_multi_step_agent.py   # Hibrit uçtan uca değerlendirme (SQL + RAG + Web)
+├── test_nodes_hygiene.py      # Durum ve düğüm izolasyonu kontrolleri
+├── test_rag_agent_eval.py     # Çok dilli anlamsal erişim testleri
+├── test_redis.py              # Önbellek ve rate-limiter birim testleri
+├── test_router_chain.py       # Anlamsal yönlendirici sınıflandırma testleri
+├── test_sql_agent_eval.py     # SQL değerlendirmesi (GEval + DeepEval)
+├── test_sql_safety.py         # Salt okunur güvenlik kontrolleri
+└── test_web_agent.py          # Tavily arama entegrasyon testleri
+```
+
+### Test Metrikleri ve Yöntemleri
+
+* **Çift Katmanlı SQL Değerlendirmesi (`test_sql_agent_eval.py`):** Veritabanı şemasını bağlam olarak kullanarak `GOLDEN_BENCHMARK_SUITE` içerisindeki referans sorgulara göre SQL doğruluğunu `GEval` ile değerlendirir. Ayrıca, üretilen yanıtları `HallucinationMetric` ve `AnswerRelevancyMetric` metrikleriyle inceler.
+
+* **Hibrit Çok Adımlı ve RAG/Web Değerlendirmesi:** SQL verilerini, Qdrant üzerinden erişilen çok dilli müşteri geri bildirimlerini (`test_rag_agent_eval.py`) ve Tavily aracılığıyla gerçekleştirilen harici web araştırmalarını (`test_web_agent.py`) bir araya getiren bileşenleri test eder.
+
+* **Yapısal Yönlendirme ve Güvenlik Testleri:** Pytest kullanarak soruların uygun uzman düğümlere (`SQL`, `RAG`, `websearch` ve `MultiStep`) yönlendirilmesini ve SQL güvenlik kontrollerinin yetkisiz yazma işlemlerini engellemesini doğrulamayı amaçlar.
+
+### Değerlendirme Araçları
+
+| Bileşen                 | Kullanım Amacı                                              |
+| ----------------------- | ----------------------------------------------------------- |
+| Pytest                  |parametreli testler ve iş akışı doğrulaması |
+| DeepEval                | Üretilen çıktıların LLM tabanlı değerlendirilmesi           |
+| `GEval`                 | Referans tabanlı SQL sorgusu doğruluk değerlendirmesi       |
+| `HallucinationMetric`   | Halüsinasyon riskinin değerlendirilmesi                     |
+| `AnswerRelevancyMetric` | Yanıtın soruyla ilgililiğinin değerlendirilmesi             |
+| Qdrant                  | Müşteri geri bildirimleri için vektör tabanlı erişim        |
+| Tavily                  | Harici web araması entegrasyonu                             |
+
+Bu değerlendirme altyapısı, geleneksel yazılım testlerini LLM tabanlı değerlendirme yöntemleriyle birleştirerek sistemin hem bağımsız bileşenlerini hem de karmaşık iş akışlarını değerlendirmeyi amaçlar.
 
 ## Ekran Görüntüleri
 
